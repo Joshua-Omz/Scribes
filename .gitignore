@@ -1,0 +1,269 @@
+# ===================================
+# Python
+# ===================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.pyc
+*.pyo
+*.pyd
+
+# ===================================
+# Virtual Environment
+# ===================================
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+virtualenv/
+.Python
+
+# ===================================
+# Environment Variables & Secrets
+# ===================================
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.development
+*.env
+.envrc
+secrets/
+.secrets/
+
+# ===================================
+# IDE & Editors
+# ===================================
+# VSCode
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ===================================
+# Testing & Coverage
+# ===================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+.hypothesis/
+.tox/
+.nox/
+coverage.xml
+*.coveragerc
+nosetests.xml
+test-results/
+pytest.ini.bak
+.cache/
+
+# ===================================
+# Database
+# ===================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+pgdata/
+postgres-data/
+
+# ===================================
+# Alembic Migrations
+# ===================================
+# Keep versions directory but ignore temp files
+alembic/versions/*.pyc
+alembic/versions/__pycache__/
+# Optionally ignore auto-generated migrations (uncomment if needed)
+# alembic/versions/*.py
+
+# ===================================
+# Logs & Monitoring
+# ===================================
+*.log
+logs/
+log/
+*.log.*
+*.out
+*.err
+
+# ===================================
+# FastAPI / Uvicorn Specific
+# ===================================
+*.pid
+*.sock
+uvicorn.pid
+
+# ===================================
+# Jupyter Notebook
+# ===================================
+.ipynb_checkpoints/
+*.ipynb
+
+# ===================================
+# OS Generated Files
+# ===================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ===================================
+# Documentation
+# ===================================
+docs/_build/
+site/
+.mkdocs_cache/
+
+# ===================================
+# Temporary Files
+# ===================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+tmp/
+temp/
+.temp/
+
+# ===================================
+# Package Managers
+# ===================================
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Poetry
+poetry.lock
+
+# Pipenv
+Pipfile.lock
+
+# ===================================
+# Static Files & Media (if applicable)
+# ===================================
+staticfiles/
+mediafiles/
+uploads/
+media/
+
+# ===================================
+# CI/CD
+# ===================================
+.github/
+.gitlab-ci.yml.bak
+
+# ===================================
+# Security & Certificates
+# ===================================
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+ssl/
+certs/
+
+# ===================================
+# Email Templates (if storing sensitive data)
+# ===================================
+# Keep templates but ignore any with sensitive data
+# email-templates/*.sensitive.html
+
+# ===================================
+# Profiling
+# ===================================
+*.prof
+*.lprof
+profile_results/
+
+# ===================================
+# mypy
+# ===================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ===================================
+# Pyright
+# ===================================
+pyrightconfig.json
+
+# ===================================
+# Ruff
+# ===================================
+.ruff_cache/
+
+# ===================================
+# Keep These Files (Exceptions)
+# ===================================
+!.gitkeep
+!.env.example
+!.vscode/settings.json
