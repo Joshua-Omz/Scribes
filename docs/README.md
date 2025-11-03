@@ -39,6 +39,7 @@ Located in: `docs/authentication/`
 |----------|-------------|
 | [AUTH_SETUP_GUIDE.md](authentication/AUTH_SETUP_GUIDE.md) | Complete guide to setting up the authentication system |
 | [AUTH_FLOW.md](authentication/AUTH_FLOW.md) | Detailed explanation of authentication flows and token types |
+| [FRONTEND_INTEGRATION_GUIDE.md](authentication/FRONTEND_INTEGRATION_GUIDE.md) | **Flutter frontend integration guide with complete examples** |
 | [VERIFICATION_TOKEN_EXPLANATION.md](authentication/VERIFICATION_TOKEN_EXPLANATION.md) | Understanding verification vs access tokens |
 | [VERIFICATION_TOKEN_ISSUE_FIX.md](authentication/VERIFICATION_TOKEN_ISSUE_FIX.md) | Troubleshooting verification token issues |
 | [EXISTING_USER_VERIFICATION.md](authentication/EXISTING_USER_VERIFICATION.md) | How to get verification tokens for existing users |
