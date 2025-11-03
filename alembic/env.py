@@ -24,6 +24,17 @@ from app.core.config import settings
 from app.core.database import Base
 # Import all models here to ensure they're registered with Base.metadata
 from app.models.base import BaseModel  # noqa: F401
+from app.models.user_model import User  # noqa: F401
+from app.models.user_profile_model import UserProfile  # noqa: F401
+from app.models.note_model import Note  # noqa: F401
+from app.models.reminder_model import Reminder  # noqa: F401
+from app.models.circle_model import Circle, CircleNote  # noqa: F401
+from app.models.cross_ref_model import CrossRef  # noqa: F401
+from app.models.annotation_model import Annotation  # noqa: F401
+from app.models.export_job_model import ExportJob  # noqa: F401
+from app.models.notification_model import Notification  # noqa: F401
+from app.models.password_reset_model import PasswordResetToken  # noqa: F401
+from app.models.refresh_model import RefreshToken  # noqa: F401
 
 # Alembic Config object
 config = context.config
