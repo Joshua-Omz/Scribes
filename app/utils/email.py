@@ -5,8 +5,7 @@ Email utility functions for sending notifications and verification emails.
 import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import List
-
+from typing import List, Optional
 from app.core.config import settings
 
 
@@ -29,7 +28,9 @@ async def send_email(
         bool: True if email sent successfully, False otherwise
     """
     if not settings.smtp_user or not settings.smtp_password:
-        print("SMTP credentials not configured")
+        print("❌ ERROR: SMTP credentials not configured in .env file")
+        print("   Please set SMTP_USER and SMTP_PASSWORD in your .env file")
+        print("   For Gmail, you need to use an App Password")
         return False
     
     message = MIMEMultipart("alternative")
@@ -45,17 +46,50 @@ async def send_email(
         message.attach(MIMEText(html_body, "html"))
     
     try:
-        await aiosmtplib.send(
-            message,
-            hostname=settings.smtp_host,
-            port=settings.smtp_port,
-            username=settings.smtp_user,
-            password=settings.smtp_password,
-            start_tls=True,
-        )
+        print(f"📧 Sending email to: {to_email}")
+        print(f"   SMTP Server: {settings.smtp_host}:{settings.smtp_port}")
+        
+        # Use SSL for port 465, STARTTLS for port 587
+        if settings.smtp_port == 465:
+            await aiosmtplib.send(
+                message,
+                hostname=settings.smtp_host,
+                port=settings.smtp_port,
+                username=settings.smtp_user,
+                password=settings.smtp_password,
+                use_tls=True,
+                timeout=30,
+            )
+        else:
+            await aiosmtplib.send(
+                message,
+                hostname=settings.smtp_host,
+                port=settings.smtp_port,
+                username=settings.smtp_user,
+                password=settings.smtp_password,
+                start_tls=True,
+                timeout=30,
+            )
+        
+        print(f"✅ Email sent successfully to {to_email}")
         return True
+        
+    except aiosmtplib.SMTPAuthenticationError as e:
+        print(f"❌ AUTHENTICATION ERROR: {str(e)}")
+        print("   Invalid SMTP_USER or SMTP_PASSWORD")
+        print("   For Gmail: You need to use an App Password, not your regular password")
+        print("   Generate one at: https://myaccount.google.com/apppasswords")
+        return False
+        
+    except aiosmtplib.SMTPConnectError as e:
+        print(f"❌ CONNECTION ERROR: {str(e)}")
+        print("   Cannot connect to SMTP server")
+        print(f"   Check SMTP_HOST ({settings.smtp_host}) and SMTP_PORT ({settings.smtp_port})")
+        return False
+        
     except Exception as e:
-        print(f"Failed to send email: {str(e)}")
+        print(f"❌ FAILED to send email: {type(e).__name__}: {str(e)}")
+        print("   Run 'python test_email.py' for detailed diagnostics")
         return False
 
 

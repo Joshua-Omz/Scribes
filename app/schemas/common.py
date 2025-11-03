@@ -19,7 +19,7 @@ class TimestampSchema(BaseSchema):
     """Schema with timestamp fields."""
     
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
 
 class HealthResponse(BaseSchema):

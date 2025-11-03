@@ -8,7 +8,7 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user_model import User
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user_schemas import UserCreate, UserUpdate
 
 
 class UserRepository:
@@ -269,3 +269,132 @@ class UserRepository:
         
         result = await self.db.execute(query)
         return result.scalar_one()
+    
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[User]:
+        """
+        Get all users from the database with pagination.
+        
+        Args:
+            skip: Number of records to skip (default: 0)
+            limit: Maximum number of records to return (default: 100)
+        
+        Returns:
+            List[User]: List of user objects
+        """
+        result = await self.db.execute(
+            select(User).offset(skip).limit(limit)
+        )
+        return list(result.scalars().all())
+    
+    async def update_role(self, user_id: int, role: str) -> Optional[User]:
+        """
+        Update user role.
+        
+        Args:
+            user_id: User ID
+            role: New role ('user' or 'admin')
+            
+        Returns:
+            Optional[User]: Updated user object or None
+        """
+        user = await self.get_by_id(user_id)
+        if not user:
+            return None
+        
+        user.role = role
+        await self.db.flush()
+        await self.db.refresh(user)
+        
+        return user
+    
+    async def update_superuser(self, user_id: int, is_superuser: bool) -> Optional[User]:
+        """
+        Update user superuser status.
+        
+        Args:
+            user_id: User ID
+            is_superuser: Superuser status
+            
+        Returns:
+            Optional[User]: Updated user object or None
+        """
+        user = await self.get_by_id(user_id)
+        if not user:
+            return None
+        
+        user.is_superuser = is_superuser
+        await self.db.flush()
+        await self.db.refresh(user)
+        
+        return user
+    
+    async def update_privileges(
+        self, 
+        user_id: int, 
+        role: Optional[str] = None,
+        is_superuser: Optional[bool] = None,
+        is_active: Optional[bool] = None
+    ) -> Optional[User]:
+        """
+        Update multiple user privileges at once.
+        
+        Args:
+            user_id: User ID
+            role: New role (optional)
+            is_superuser: Superuser status (optional)
+            is_active: Active status (optional)
+            
+        Returns:
+            Optional[User]: Updated user object or None
+        """
+        user = await self.get_by_id(user_id)
+        if not user:
+            return None
+        
+        if role is not None:
+            user.role = role
+        if is_superuser is not None:
+            user.is_superuser = is_superuser
+        if is_active is not None:
+            user.is_active = is_active
+        
+        await self.db.flush()
+        await self.db.refresh(user)
+        
+        return user
+    
+    async def create_admin(
+        self,
+        user_data: UserCreate,
+        hashed_password: str,
+        is_superuser: bool = True
+    ) -> User:
+        """
+        Create a new admin user.
+        
+        Args:
+            user_data: User creation data
+            hashed_password: Hashed password
+            is_superuser: Whether user should be superuser (default: True)
+            
+        Returns:
+            User: Created admin user object
+        """
+        user = User(
+            email=user_data.email.lower(),
+            username=user_data.username.lower(),
+            full_name=user_data.full_name,
+            hashed_password=hashed_password,
+            role="admin",
+            is_active=True,
+            is_verified=False,
+            is_superuser=is_superuser,
+        )
+        
+        self.db.add(user)
+        await self.db.flush()
+        await self.db.refresh(user)
+        
+        return user
+
+

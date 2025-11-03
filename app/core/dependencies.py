@@ -110,6 +110,9 @@ async def get_current_active_user(
     return current_user
 
 
+
+
+
 async def get_current_verified_user(
     current_user: User = Depends(get_current_active_user)
 ) -> User:
@@ -180,3 +183,48 @@ async def get_optional_current_user(
         return await get_current_user(credentials, db)
     except HTTPException:
         return None
+
+
+async def get_all_users_dependency(
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+) -> list[User]:
+    """
+    Get all users from the database (admin only).
+    
+    Args:
+        current_user: Current admin user
+        db: Database session
+        
+    Returns:
+        list[User]: List of all users
+        
+    Raises:
+        HTTPException: If user is not admin
+    """
+    user_repo = UserRepository(db)
+    users = await user_repo.get_all()
+    return users
+
+
+async def get_all_deactivated_users_dependency(
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db)
+) -> list[User]:
+    """
+    Get all deactivated users from the database (admin only).
+    
+    Args:
+        current_user: Current admin user
+        db: Database session
+        
+    Returns:
+        list[User]: List of all deactivated users
+        
+    Raises:
+        HTTPException: If user is not admin
+    """
+    user_repo = UserRepository(db)
+    users = await user_repo.get_all_deactivated()
+    return users
+

@@ -20,8 +20,8 @@ from app.core.config import settings
 from app.models.user_model import User
 from app.models.refresh_model import RefreshToken
 from app.repositories.user_repository import UserRepository
-from app.schemas.user import UserCreate
-from app.schemas.auth import TokenResponse
+from app.schemas.user_schemas import UserCreate
+from app.schemas.auth_schemas import TokenResponse
 from app.utils.email import send_verification_email, send_password_reset_email
 
 
@@ -71,6 +71,17 @@ class AuthService:
         
         # Generate verification token
         verification_token = create_verification_token(user.email)
+        
+        # DEBUG: Print verification token in development mode
+        if settings.debug:
+            print(f"\n{'='*70}")
+            print(f"🔑 EMAIL VERIFICATION TOKEN (DEVELOPMENT MODE ONLY)")
+            print(f"{'='*70}")
+            print(f"📧 Email: {user.email}")
+            print(f"🎫 Token: {verification_token}")
+            print(f"{'='*70}")
+            print(f"Use this token in POST /auth/verify-email")
+            print(f"{'='*70}\n")
         
         # Send verification email (async, non-blocking)
         try:

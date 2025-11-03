@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field, validator
 
+from app.schemas.common import BaseSchema, TimestampSchema
+
 
 class UserBase(BaseModel):
     """Base user schema with common attributes."""
@@ -97,6 +99,7 @@ class UserInDB(UserBase):
     role: str
     is_active: bool
     is_superuser: bool
+    is_verified: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -107,6 +110,7 @@ class UserInDB(UserBase):
 class UserResponse(UserInDB):
     """Schema for user responses (without sensitive data)."""
     pass
+    
 
 
 class UserProfileResponse(UserResponse):
@@ -149,6 +153,10 @@ class ChangePasswordRequest(BaseModel):
         if not any(char.islower() for char in v):
             raise ValueError('Password must contain at least one lowercase letter')
         return v
+
+
+# Alias for backward compatibility
+PasswordChange = ChangePasswordRequest
 
 
 class UserSearchRequest(BaseModel):

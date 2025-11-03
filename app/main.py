@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.database import close_db
 from app.api.health import router as health_router
-from app.api.auth import router as auth_router
+from app.api.auth_routes import router as auth_router
 
 
 @asynccontextmanager
