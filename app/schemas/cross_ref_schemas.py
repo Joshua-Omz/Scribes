@@ -110,8 +110,14 @@ class CrossRefResponse(CrossRefBase, TimestampSchema):
 class CrossRefWithNoteDetails(CrossRefResponse):
     """Schema for cross reference with note details."""
     
-    other_note_title: str = Field(..., description="Title of the referenced note")
-    other_note_content_preview: Optional[str] = Field(
+    note_title: Optional[str] = Field(None, description="Title of the source note")
+    note_preview: Optional[str] = Field(
+        None,
+        description="Preview of the source note content",
+        examples=["This note discusses the theological concept of..."]
+    )
+    other_note_title: Optional[str] = Field(None, description="Title of the referenced note")
+    other_note_preview: Optional[str] = Field(
         None,
         description="Preview of the referenced note content",
         examples=["This note discusses the theological concept of..."]
@@ -123,15 +129,19 @@ class CrossRefWithNoteDetails(CrossRefResponse):
 class CrossRefListResponse(BaseSchema):
     """Schema for list of cross references."""
     
-    items: List[CrossRefWithNoteDetails]
+    cross_refs: List[CrossRefWithNoteDetails]
     total: int
+    skip: int = 0
+    limit: int = 100
     
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "items": [],
-                    "total": 5
+                    "cross_refs": [],
+                    "total": 5,
+                    "skip": 0,
+                    "limit": 100
                 }
             ]
         }
@@ -169,6 +179,44 @@ class CrossRefSuggestion(BaseSchema):
                     "confidence_score": 87,
                     "reason": "Both notes discuss the doctrine of grace",
                     "suggested_reference_type": "related"
+                }
+            ]
+        }
+    }
+
+
+class BulkCrossRefCreate(BaseSchema):
+    """Schema for bulk creating multiple cross references."""
+    
+    cross_refs: List[CrossRefCreate] = Field(
+        ...,
+        description="List of cross references to create",
+        min_length=1,
+        max_length=100
+    )
+    skip_errors: bool = Field(
+        True,
+        description="Whether to skip errors and continue with valid references"
+    )
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "cross_refs": [
+                        {
+                            "note_id": 1,
+                            "other_note_id": 2,
+                            "reference_type": "related",
+                            "description": "Both discuss grace"
+                        },
+                        {
+                            "note_id": 1,
+                            "other_note_id": 3,
+                            "reference_type": "expands_on"
+                        }
+                    ],
+                    "skip_errors": True
                 }
             ]
         }

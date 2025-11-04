@@ -13,6 +13,7 @@ from app.core.database import close_db
 from app.api.health import router as health_router
 from app.api.auth_routes import router as auth_router
 from app.api.note_routes import router as note_router
+from app.api.cross_ref_routes import router as cross_ref_router
 
 
 @asynccontextmanager
@@ -65,6 +66,7 @@ def create_application() -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(note_router)
+    app.include_router(cross_ref_router)
     
     # Global exception handler
     @app.exception_handler(Exception)
