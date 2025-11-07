@@ -63,7 +63,18 @@ class NoteCreate(NoteBase):
 
 
 class NoteUpdate(BaseSchema):
-    """Schema for updating a note."""
+    """
+    Schema for partially updating a note (PATCH semantics).
+    
+    All fields are optional. Only provide the fields you want to change.
+    Omitted fields will remain unchanged in the database.
+    
+    Example - Update only the title:
+        {"title": "New Title"}
+    
+    Example - Update title and tags:
+        {"title": "New Title", "tags": "faith, hope"}
+    """
     
     title: Optional[str] = Field(
         None,

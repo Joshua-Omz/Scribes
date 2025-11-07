@@ -108,11 +108,11 @@ async def get_note(
     return NoteResponse.model_validate(note)
 
 
-@router.put(
+@router.patch(
     "/{note_id}",
     response_model=NoteResponse,
-    summary="Update a note",
-    description="Update an existing note. Only provided fields will be updated."
+    summary="Partially update a note",
+    description="Partially update an existing note. Only the fields provided in the request will be modified. This follows PATCH semantics for partial resource updates."
 )
 async def update_note(
     note_id: int,
@@ -121,13 +121,29 @@ async def update_note(
     current_user: User = Depends(get_current_active_user)
 ) -> NoteResponse:
     """
-    Update a note.
+    Partially update a note (PATCH semantics).
     
+    Only the fields provided in the request body will be updated.
+    Omitted fields remain unchanged.
+    
+    **Args:**
     - **note_id**: ID of the note to update
-    - **note_data**: Fields to update (only provided fields will be changed)
+    - **note_data**: Fields to update (all fields are optional)
     
-    Returns the updated note.
-    Raises 404 if not found or unauthorized.
+    **Example Request:**
+    ```json
+    {
+        "title": "New Title"
+        // content, preacher, tags, scripture_refs remain unchanged
+    }
+    ```
+    
+    **Returns:**
+    - The updated note with all fields
+    
+    **Raises:**
+    - 404: Note not found or you don't have permission
+    - 400: Invalid field values (empty title/content)
     """
     note_service = NoteService(db)
     note = await note_service.update_note(note_id, note_data, current_user.id)
