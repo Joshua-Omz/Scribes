@@ -6,6 +6,7 @@ from typing import Optional, List
 from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 
 from app.models.note_model import Note
 from app.repositories.note_repository import NoteRepository
@@ -16,6 +17,9 @@ from app.schemas.note_schemas import (
     NoteListResponse,
     NoteSearchRequest
 )
+from app.services.embedding_service import get_embedding_service
+
+logger = logging.getLogger(__name__)
 
 
 class NoteService:
@@ -25,6 +29,32 @@ class NoteService:
         """Initialize note service."""
         self.db = db
         self.note_repo = NoteRepository(db)
+        self.embedding_service = get_embedding_service()
+    
+    async def _generate_embedding(self, note: Note) -> None:
+        """
+        Generate and set embedding for a note.
+        
+        Args:
+            note: Note object to generate embedding for
+        """ 
+        try:
+            # Combine note fields for rich semantic representation
+            combined_text = self.embedding_service.combine_text_for_embedding(
+                content=note.content,
+                scripture_refs=note.scripture_refs,
+                tags=note.tags.split(',') if note.tags else None
+            )
+            
+            # Generate embedding
+            embedding = self.embedding_service.generate(combined_text)
+            note.embedding = embedding
+            
+            logger.info(f"Generated embedding for note {note.id}")
+        except Exception as e:
+            logger.error(f"Failed to generate embedding for note {note.id}: {e}")
+            # Don't fail the operation if embedding generation fails
+            note.embedding = None
     
     async def create_note(self, note_data: NoteCreate, user_id: int) -> Note:
         """
@@ -55,8 +85,12 @@ class NoteService:
         
         # Create note
         note = await self.note_repo.create(note_data, user_id)
+        # Generate embedding
+        await self._generate_embedding(note)
+        await self.db.flush()
+        await self.db.refresh(note)
         await self.db.commit()
-        
+        logger.info(f"Created note {note.id} with embedding: {note.embedding is not None}")
         return note
     
     async def get_note(self, note_id: int, user_id: int) -> Note:
@@ -180,13 +214,19 @@ class NoteService:
         
         # Update note
         updated_note = await self.note_repo.update(note_id, note_data)
-        await self.db.commit()
         
         if not updated_note:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to update note"
             )
+        
+        # Regenerate embedding if content-related fields were updated
+        content_fields = {'title', 'content', 'preacher', 'scripture_refs', 'tags'}
+        if any(field in update_dict for field in content_fields):
+            await self._generate_embedding(updated_note)
+        
+        await self.db.commit()
         
         return updated_note
     

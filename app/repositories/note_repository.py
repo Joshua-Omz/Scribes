@@ -7,17 +7,22 @@ from typing import Optional, List
 from sqlalchemy import select, update, delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
+import logging
 
 from app.models.note_model import Note
 from app.schemas.note_schemas import NoteCreate, NoteUpdate
 
 
+
+logger = logging.getLogger(__name__)
+
 class NoteRepository:
     """Repository for note database operations."""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, ):
         """Initialize repository with database session."""
         self.db = db
+
     
     async def create(self, note_data: NoteCreate, user_id: int) -> Note:
         """
@@ -29,7 +34,7 @@ class NoteRepository:
             
         Returns:
             Note: Created note object
-        """
+        """  
         note = Note(
             user_id=user_id,
             title=note_data.title,
@@ -40,8 +45,7 @@ class NoteRepository:
         )
         
         self.db.add(note)
-        await self.db.flush()
-        await self.db.refresh(note)
+        logger.info(f"Created note object for user {user_id} (not yet flushed)")
         
         return note
     

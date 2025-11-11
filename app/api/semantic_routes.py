@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from pydantic import BaseModel, Field
+import numpy as np
+import logging
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
@@ -14,7 +16,6 @@ from app.models.user_model import User
 from app.models.note_model import Note
 from app.schemas.note_schemas import NoteResponse
 from app.services.embedding_service import get_embedding_service
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -75,15 +76,26 @@ async def semantic_search(
         embedding_service = get_embedding_service()
         query_embedding = embedding_service.generate(search_request.query)
         
-        if not query_embedding or all(v == 0.0 for v in query_embedding):
+        # Convert to numpy array if needed for validation
+        if query_embedding is not None:
+            query_embedding_array = np.array(query_embedding)
+        else:
+            query_embedding_array = None
+        
+        # Check if embedding is None or all zeros using numpy methods
+        if query_embedding_array is None or (query_embedding_array == 0.0).all():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to generate embedding for query"
             )
         
+        #converting the validated numpy array back to string to pass to the db
+        
+        
         # Perform vector similarity search using pgvector
         # Using cosine distance operator: <=>
         # Lower distance = higher similarity
+        query_vec = query_embedding_array.tolist()
         query_sql = text("""
             SELECT 
                 id, user_id, title, content, preacher, tags, scripture_refs,
@@ -100,7 +112,7 @@ async def semantic_search(
         result = await db.execute(
             query_sql,
             {
-                "query_vec": query_embedding,  # Pass the vector directly, not as string
+                "query_vec": query_vec,  # Pass the vector directly, not as string
                 "user_id": current_user.id,
                 "min_similarity": search_request.min_similarity,
                 "limit": search_request.limit
@@ -188,12 +200,20 @@ async def find_similar_notes(
                 detail="Note not found or you don't have permission to access it"
             )
         
-        if not source_note.embedding:
+        # Convert embedding to numpy array if needed for validation
+        if source_note.embedding is not None:
+            source_embedding_array = np.array(source_note.embedding)
+        else:
+            source_embedding_array = None
+        
+        # Check if embedding exists using proper None check
+        if source_embedding_array is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Source note does not have an embedding. Please update the note to generate one."
             )
         
+        source_vec= source_embedding_array.tolist()
         # Find similar notes
         query_sql = text("""
             SELECT 
@@ -212,7 +232,7 @@ async def find_similar_notes(
         result = await db.execute(
             query_sql,
             {
-                "source_embedding": source_note.embedding,  # Pass the vector directly, not as string
+                "source_embedding": source_vec,  # Pass the vector directly, not as string
                 "user_id": current_user.id,
                 "source_note_id": note_id,
                 "min_similarity": min_similarity,

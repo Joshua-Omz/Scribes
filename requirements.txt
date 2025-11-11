@@ -26,11 +26,12 @@ email-validator==2.1.0
 # Utilities
 python-dotenv==1.0.0
 python-dateutil==2.8.2
+tenacity==8.2.3
 
-# AI/Embeddings (for future use)
-# sentence-transformers==2.2.2
-# openai==1.10.0
-# pgvector==0.2.4
+# AI/Embeddings
+sentence-transformers==5.1.2
+pgvector==0.2.5
+numpy==1.24.3
 
 # Testing
 pytest==7.4.4

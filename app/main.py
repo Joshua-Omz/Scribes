@@ -14,6 +14,8 @@ from app.api.health import router as health_router
 from app.api.auth_routes import router as auth_router
 from app.api.note_routes import router as note_router
 from app.api.cross_ref_routes import router as cross_ref_router
+# Version 2 of semantic routes with ORM-native queries and automatic embeddings
+from app.api.semantic_routes_v2 import router as semantic_router
 
 
 @asynccontextmanager
@@ -26,6 +28,11 @@ async def lifespan(app: FastAPI):
     print(f"🚀 Starting {settings.app_name} v{settings.app_version}")
     print(f"📍 Environment: {settings.app_env}")
     print(f"🔧 Debug mode: {settings.debug}")
+    
+    # Register event listeners for automatic embedding generation
+    from app.models.events import register_note_events
+    register_note_events()
+    print("✅ Registered automatic embedding generation listeners")
     
     yield
     
@@ -67,6 +74,7 @@ def create_application() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(note_router)
     app.include_router(cross_ref_router)
+    app.include_router(semantic_router)
     
     # Global exception handler
     @app.exception_handler(Exception)

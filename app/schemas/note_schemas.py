@@ -42,6 +42,7 @@ class NoteBase(BaseSchema):
         description="Scripture references (comma-separated)",
         examples=["John 3:16, Romans 5:8, Ephesians 2:8-9"]
     )
+   
 
 
 class NoteCreate(NoteBase):
