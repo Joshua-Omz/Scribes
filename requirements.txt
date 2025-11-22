@@ -28,6 +28,10 @@ python-dotenv==1.0.0
 python-dateutil==2.8.2
 tenacity==8.2.3
 
+# Background Tasks & Queue
+redis==5.0.1
+arq==0.25.0
+
 # AI/Embeddings
 sentence-transformers==5.1.2
 pgvector==0.2.5

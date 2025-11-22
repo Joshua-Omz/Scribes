@@ -13,6 +13,7 @@ from app.models.export_job_model import ExportJob
 from app.models.notification_model import Notification
 from app.models.password_reset_model import PasswordResetToken
 from app.models.cross_ref_model import CrossRef
+from app.models.background_job_model import BackgroundJob
 
 __all__ = [
     "BaseModel",
@@ -29,4 +30,5 @@ __all__ = [
     "Notification",
     "PasswordResetToken",
     "CrossRef",
+    "BackgroundJob",
 ]

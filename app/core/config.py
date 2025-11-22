@@ -74,6 +74,16 @@ class Settings(BaseSettings):
         description="Embedding model identifier"
     )
     
+    # Redis & Background Tasks
+    redis_url: str = Field(
+        default="redis://localhost:6379",
+        description="Redis connection URL for background tasks"
+    )
+    redis_max_connections: int = Field(default=10, description="Redis connection pool size")
+    arq_job_timeout: int = Field(default=3600, description="ARQ job timeout in seconds (1 hour default)")
+    arq_max_jobs: int = Field(default=10, description="Maximum concurrent ARQ jobs")
+    arq_keep_result: int = Field(default=3600, description="How long to keep job results in seconds")
+    
     @field_validator("cors_origins")
     @classmethod
     def parse_cors_origins(cls, v: str) -> List[str]:

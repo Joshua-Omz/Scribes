@@ -56,27 +56,21 @@ class EmbeddingService:
             logger.error(f"Failed to load embedding model: {e}")
             raise
     
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type(EmbeddingGenerationError),
-        reraise=True
-    )
-    def generate(self, text: str) -> List[float]:
+    def _generate_single(self, text: str) -> List[float]:
         """
-        Generate embedding vector from text with automatic retry logic.
+        Internal method to generate embedding for a single text chunk.
+        No retry logic - handled by the public generate() method.
         
         Args:
             text: Input text to embed
             
         Returns:
-            List of floats representing the embedding vector (384 dimensions for all-MiniLM-L6-v2)
+            List of floats representing the embedding vector
             
         Raises:
-            EmbeddingGenerationError: If embedding generation fails after retries
+            EmbeddingGenerationError: If embedding generation fails
         """
         if not text or not text.strip():
-            logger.warning("Empty text provided for embedding generation")
             raise EmbeddingGenerationError("Cannot generate embedding for empty text")
         
         try:
@@ -99,12 +93,137 @@ class EmbeddingService:
             logger.error(f"Error generating embedding: {e}")
             raise EmbeddingGenerationError(f"Failed to generate embedding: {str(e)}")
     
-    def generate_batch(self, texts: List[str]) -> List[List[float]]:
+    def _generate_with_chunking(self, text: str, chunk_size_tokens: int = 384) -> List[float]:
         """
-        Generate embeddings for multiple texts efficiently.
+        Generate embedding for long text using chunking and averaging strategy.
+        
+        Splits text into chunks, generates embeddings for each, then averages them
+        to create a single representative embedding that captures the full content.
+        
+        Args:
+            text: Input text to embed (should be long text requiring chunking)
+            chunk_size_tokens: Maximum tokens per chunk (default: 384)
+            
+        Returns:
+            List of floats representing the averaged embedding vector
+            
+        Raises:
+            EmbeddingGenerationError: If chunking or embedding generation fails
+        """
+        try:
+            # Split text into chunks based on character count (conservative estimation)
+            # Using ~3.5 chars per token for safety (vs 4)
+            chars_per_chunk = chunk_size_tokens * 3.5
+            chunks = []
+            
+            # Split by sentences first to avoid breaking mid-sentence
+            sentences = text.replace('\n', ' ').split('. ')
+            
+            current_chunk = ""
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if not sentence:
+                    continue
+                    
+                # Add period back if it was removed
+                if not sentence.endswith('.'):
+                    sentence += '.'
+                
+                # Check if adding this sentence exceeds chunk size
+                if len(current_chunk) + len(sentence) > chars_per_chunk and current_chunk:
+                    chunks.append(current_chunk.strip())
+                    current_chunk = sentence
+                else:
+                    current_chunk += " " + sentence if current_chunk else sentence
+            
+            # Add the last chunk
+            if current_chunk.strip():
+                chunks.append(current_chunk.strip())
+            
+            # Fallback: if no chunks were created (no sentence delimiters), split by character count
+            if not chunks:
+                chunks = [text[i:i+int(chars_per_chunk)] for i in range(0, len(text), int(chars_per_chunk))]
+            
+            logger.info(f"Split text into {len(chunks)} chunks for embedding")
+            
+            # Generate embeddings for each chunk
+            chunk_embeddings = []
+            for i, chunk in enumerate(chunks):
+                try:
+                    embedding = self._generate_single(chunk)
+                    chunk_embeddings.append(np.array(embedding))
+                except Exception as e:
+                    logger.warning(f"Failed to embed chunk {i+1}/{len(chunks)}: {e}")
+                    # Continue with other chunks - partial coverage is better than none
+            
+            if not chunk_embeddings:
+                raise EmbeddingGenerationError("Failed to generate embeddings for any chunks")
+            
+            # Average the embeddings
+            avg_embedding = np.mean(chunk_embeddings, axis=0)
+            
+            # Normalize the averaged embedding (important for cosine similarity)
+            norm = np.linalg.norm(avg_embedding)
+            if norm > 0:
+                avg_embedding = avg_embedding / norm
+            
+            logger.info(f"Successfully averaged {len(chunk_embeddings)} chunk embeddings")
+            
+            return avg_embedding.tolist()
+            
+        except EmbeddingGenerationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error in chunking strategy: {e}")
+            raise EmbeddingGenerationError(f"Failed to generate embedding with chunking: {str(e)}")
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(EmbeddingGenerationError),
+        reraise=True
+    )
+    def generate(self, text: str, enable_chunking: bool = True, chunk_size_tokens: int = 384) -> List[float]:
+        """
+        Generate embedding vector from text with automatic retry logic and chunking support.
+        
+        For long texts, automatically chunks the content and averages embeddings to prevent
+        truncation and information loss.
+        
+        Args:
+            text: Input text to embed
+            enable_chunking: Whether to chunk long text (default: True for production)
+            chunk_size_tokens: Maximum tokens per chunk (default: 384, conservative for 512 token limit)
+            
+        Returns:
+            List of floats representing the embedding vector (384 dimensions for all-MiniLM-L6-v2)
+            
+        Raises:
+            EmbeddingGenerationError: If embedding generation fails after retries
+        """
+        if not text or not text.strip():
+            logger.warning("Empty text provided for embedding generation")
+            raise EmbeddingGenerationError("Cannot generate embedding for empty text")
+        
+        # Estimate tokens (rough: 4 chars ≈ 1 token for English)
+        estimated_tokens = len(text) // 4
+        
+        # If text is short enough or chunking disabled, process directly
+        if not enable_chunking or estimated_tokens <= chunk_size_tokens:
+            return self._generate_single(text)
+        
+        # Text is too long - use chunking with averaging
+        logger.info(f"Text length {estimated_tokens} tokens exceeds limit {chunk_size_tokens}. Using chunking strategy.")
+        return self._generate_with_chunking(text, chunk_size_tokens)
+    
+    def generate_batch(self, texts: List[str], enable_chunking: bool = True, chunk_size_tokens: int = 384) -> List[List[float]]:
+        """
+        Generate embeddings for multiple texts efficiently with chunking support.
         
         Args:
             texts: List of texts to embed
+            enable_chunking: Whether to chunk long texts (default: True)
+            chunk_size_tokens: Maximum tokens per chunk (default: 384)
             
         Returns:
             List of embedding vectors (native model dimensions)
@@ -113,29 +232,16 @@ class EmbeddingService:
             return []
         
         try:
-            # Filter out empty texts but keep track of indices
-            valid_texts = []
-            valid_indices = []
-            
-            for i, text in enumerate(texts):
-                if text and text.strip():
-                    valid_texts.append(text)
-                    valid_indices.append(i)
-            
-            if not valid_texts:
-                # Return empty embeddings for all texts
-                return [[0.0] * self.embedding_dimension for _ in range(len(texts))]
-            
-            # Generate embeddings in batch
-            embeddings = self._model.encode(valid_texts, convert_to_numpy=True)
-            
-            # Prepare result array with zeros for all texts
-            result = [[0.0] * self.embedding_dimension for _ in range(len(texts))]
-            
-            # Fill in valid embeddings (no padding needed - use native dimensions)
-            for i, embedding in enumerate(embeddings):
-                original_index = valid_indices[i]
-                result[original_index] = embedding.tolist()
+            # Process each text individually to handle chunking properly
+            result = []
+            for text in texts:
+                if not text or not text.strip():
+                    # Empty text gets zero embedding
+                    result.append([0.0] * self.embedding_dimension)
+                else:
+                    # Use the generate method which handles chunking
+                    embedding = self.generate(text, enable_chunking, chunk_size_tokens)
+                    result.append(embedding)
             
             return result
             
@@ -211,7 +317,15 @@ class EmbeddingService:
             tags_text = ", ".join(tags)
             parts.append(f"Topics: {tags_text}.")
         
-        return " ".join(parts)
+        combined = " ".join(parts)
+        
+        # Log text length for monitoring chunking usage
+        char_count = len(combined)
+        estimated_tokens = char_count // 4
+        if estimated_tokens > 384:
+            logger.info(f"Combined text is {char_count} chars (~{estimated_tokens} tokens) - will use chunking")
+        
+        return combined
     
     def get_model_info(self) -> dict:
         """Get information about the current embedding model."""

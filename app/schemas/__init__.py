@@ -103,6 +103,16 @@ from app.schemas.reminder_schemas import (
     ReminderListResponse,
     ReminderFilterRequest,
 )
+from app.schemas.background_job_schemas import (
+    JobStatus,
+    JobType,
+    BackgroundJobBase,
+    BackgroundJobCreate,
+    BackgroundJobUpdate,
+    BackgroundJobResponse,
+    BackgroundJobListResponse,
+    BackgroundJobStatusResponse,
+)
 
 __all__ = [
     # Common
@@ -197,4 +207,13 @@ __all__ = [
     "ReminderDetailResponse",
     "ReminderListResponse",
     "ReminderFilterRequest",
+    # Background Job
+    "JobStatus",
+    "JobType",
+    "BackgroundJobBase",
+    "BackgroundJobCreate",
+    "BackgroundJobUpdate",
+    "BackgroundJobResponse",
+    "BackgroundJobListResponse",
+    "BackgroundJobStatusResponse",
 ]

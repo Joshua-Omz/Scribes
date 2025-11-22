@@ -35,3 +35,4 @@ class User(Base):
     export_jobs = relationship("ExportJob", back_populates="user", cascade="all, delete")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete")
     reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+    background_jobs = relationship("BackgroundJob", back_populates="user", cascade="all, delete")

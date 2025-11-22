@@ -10,12 +10,13 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.database import close_db
-from app.api.health import router as health_router
-from app.api.auth_routes import router as auth_router
-from app.api.note_routes import router as note_router
-from app.api.cross_ref_routes import router as cross_ref_router
+from app.routes.health import router as health_router
+from app.routes.auth_routes import router as auth_router
+from app.routes.note_routes import router as note_router
+from app.routes.cross_ref_routes import router as cross_ref_router
+from app.routes.job_routes import router as job_router
 # Version 2 of semantic routes with ORM-native queries and automatic embeddings
-from app.api.semantic_routes_v2 import router as semantic_router
+from app.routes.semantic_routes import router as semantic_router
 
 
 @asynccontextmanager
@@ -74,6 +75,7 @@ def create_application() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(note_router)
     app.include_router(cross_ref_router)
+    app.include_router(job_router)
     app.include_router(semantic_router)
     
     # Global exception handler

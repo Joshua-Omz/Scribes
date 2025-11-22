@@ -4,15 +4,21 @@ Refactored for reliability, performance, and maintainability.
 """
 
 from typing import List
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from arq import create_pool
+from arq.connections import RedisSettings
 import logging
+
+from app.core.config import settings
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
 from app.models.user_model import User
 from app.models.note_model import Note
+from app.models.background_job_model import BackgroundJob
 from app.schemas.note_schemas import NoteResponse
 from app.schemas.semantic_schemas import (
     SemanticSearchRequest,
@@ -278,15 +284,17 @@ async def get_embedding_status(
 # Background Task for Batch Processing
 # ============================================================================
 
-async def regenerate_embeddings_task(user_id: int, db: AsyncSession):
+async def regenerate_embeddings_task(user_id: int, job_id: UUID, db: AsyncSession):
     """
-    Background task to regenerate embeddings in batches.
+    Background task to regenerate embeddings in batches with progress tracking.
     
     This runs asynchronously to avoid blocking the API request.
     Processes notes in chunks to prevent memory issues.
+    Updates job progress in database after each batch.
     
     Args:
         user_id: User ID whose notes to regenerate
+        job_id: Background job ID for tracking progress
         db: Database session
     """
     batch_size = 100
@@ -297,6 +305,30 @@ async def regenerate_embeddings_task(user_id: int, db: AsyncSession):
     embedding_service = get_embedding_service()
     
     try:
+        # Get the job record
+        result = await db.execute(
+            select(BackgroundJob).where(BackgroundJob.job_id == job_id)
+        )
+        job = result.scalar_one_or_none()
+        
+        if not job:
+            logger.error(f"Job {job_id} not found for user {user_id}")
+            return
+        
+        # Mark job as running
+        job.mark_running()
+        await db.commit()
+        
+        # Count total notes to process
+        count_result = await db.execute(
+            select(func.count(Note.id)).where(Note.user_id == user_id)
+        )
+        total_notes = count_result.scalar()
+        job.total_items = total_notes
+        await db.commit()
+        
+        logger.info(f"Starting embedding regeneration for user {user_id}: {total_notes} notes")
+        
         while True:
             # Fetch notes in batches
             result = await db.execute(
@@ -335,51 +367,103 @@ async def regenerate_embeddings_task(user_id: int, db: AsyncSession):
                     total_failed += 1
                     continue
             
-            # Commit the batch
+            # Commit the batch and update progress
             await db.commit()
-            logger.info(f"Regeneration batch: processed {len(notes)} notes (offset {offset})")
+            job.update_progress(total_processed, total_failed)
+            await db.commit()
+            
+            logger.info(f"Regeneration batch: processed {len(notes)} notes (offset {offset}), " +
+                       f"total: {total_processed} succeeded, {total_failed} failed, " +
+                       f"progress: {job.progress_percent}%")
             
             offset += batch_size
         
-        logger.info(f"Regeneration complete: {total_processed} succeeded, {total_failed} failed")
+        # Mark job as completed
+        job.mark_completed(result_data={
+            "embeddings_generated": total_processed,
+            "failed_notes": total_failed,
+            "total_notes": total_notes
+        })
+        await db.commit()
+        
+        logger.info(f"Regeneration complete for job {job_id}: {total_processed} succeeded, {total_failed} failed")
         
     except Exception as e:
-        logger.error(f"Batch regeneration error: {e}", exc_info=True)
+        logger.error(f"Batch regeneration error for job {job_id}: {e}", exc_info=True)
+        
+        # Mark job as failed
+        try:
+            if job:
+                job.mark_failed(str(e))
+                await db.commit()
+        except:
+            pass
+        
         await db.rollback()
 
 
 @router.post("/regenerate-embeddings", response_model=RegenerationStatusResponse)
 async def regenerate_all_embeddings(
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Trigger background regeneration of embeddings for all user's notes.
+    Trigger background regeneration of embeddings for all user's notes using ARQ worker.
     
     This is useful when:
     - Upgrading to a new embedding model
     - Fixing notes that don't have embeddings
     - After bulk note imports
     
-    The operation runs in the background to avoid blocking the API.
+    The operation runs in the ARQ worker (separate process) to avoid blocking the API.
+    Returns a job_id that can be used to track progress via GET /jobs/{job_id}
     
     Args:
-        background_tasks: FastAPI background tasks
         db: Database session
         current_user: Authenticated user
         
     Returns:
-        Status message indicating the task has been queued
+        Status message with job_id for tracking progress
     """
     try:
-        # Add the regeneration task to background tasks
-        background_tasks.add_task(regenerate_embeddings_task, current_user.id, db)
+        # Create a background job record
+        job = BackgroundJob(
+            user_id=current_user.id,
+            job_type="embedding_regeneration",
+            status="queued"
+        )
+        db.add(job)
+        await db.commit()
+        await db.refresh(job)
+        
+        logger.info(f"Created regeneration job {job.job_id} for user {current_user.id}")
+        
+        # Create Redis pool and enqueue ARQ task
+        redis_url_parts = settings.redis_url.replace("redis://", "").split(":")
+        redis_host = redis_url_parts[0] if redis_url_parts else "localhost"
+        redis_port = int(redis_url_parts[1]) if len(redis_url_parts) > 1 else 6379
+        
+        redis_settings = RedisSettings(host=redis_host, port=redis_port, database=0)
+        redis = await create_pool(redis_settings)
+        
+        try:
+            # Enqueue the ARQ task with correct queue name
+            arq_job = await redis.enqueue_job(
+                'regenerate_embeddings_arq',
+                current_user.id,
+                str(job.job_id),
+                _queue_name="scribes:queue"  # Match the queue name in arq_config.py
+            )
+            
+            logger.info(f"Enqueued ARQ job for regeneration: {arq_job.job_id if arq_job else 'None'}")
+            
+        finally:
+            await redis.close()
         
         return RegenerationStatusResponse(
-            message="Embedding regeneration has been queued and will process in the background",
+            message=f"Embedding regeneration has been queued. Track progress at GET /jobs/{job.job_id}",
             status="queued",
-            task_id=None  # Could use a proper task queue like Celery for task tracking
+            task_id=str(job.job_id)
         )
         
     except Exception as e:
