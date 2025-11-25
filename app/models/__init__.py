@@ -5,6 +5,7 @@ from app.models.base import BaseModel
 from app.models.user_model import User
 from app.models.user_profile_model import UserProfile
 from app.models.note_model import Note
+from app.models.note_chunk_model import NoteChunk
 from app.models.circle_model import Circle, CircleMember, CircleNote
 from app.models.reminder_model import Reminder
 from app.models.refresh_model import RefreshToken
@@ -20,6 +21,7 @@ __all__ = [
     "User",
     "UserProfile",
     "Note",
+    "NoteChunk",
     "Circle",
     "CircleMember",
     "CircleNote",

@@ -84,6 +84,72 @@ class Settings(BaseSettings):
     arq_max_jobs: int = Field(default=10, description="Maximum concurrent ARQ jobs")
     arq_keep_result: int = Field(default=3600, description="How long to keep job results in seconds")
     
+    # AI Assistant Configuration (Phase 6 - RAG with token awareness)
+    # Token Budget Breakdown (Total: 2048 tokens):
+    # - System prompt:  150 tokens (7%)  - Pastoral instructions & citation rules
+    # - User query:     150 tokens (7%)  - User's question
+    # - Context:       1200 tokens (59%) - Retrieved sermon chunks (3-4 chunks)
+    # - Max output:     400 tokens (20%) - Generated pastoral answer
+    # - Safety buffer:  148 tokens (7%)  - Formatting overhead & margin
+    
+    assistant_model_context_window: int = Field(
+        default=2048,
+        description="Total context window for generation model (Llama-2/Llama-3.2)"
+    )
+    assistant_top_k: int = Field(
+        default=50,
+        description="Number of top chunks to retrieve from vector DB (retrieve many, use best)"
+    )
+    assistant_max_context_tokens: int = Field(
+        default=1200,
+        description="Maximum tokens for retrieved sermon context (59% of window, ~900 words)"
+    )
+    assistant_system_tokens: int = Field(
+        default=150,
+        description="Reserved for system instructions (pastoral tone, citation rules)"
+    )
+    assistant_user_query_tokens: int = Field(
+        default=150,
+        description="Maximum tokens allowed for user query (prevents overflow)"
+    )
+    assistant_max_output_tokens: int = Field(
+        default=400,
+        description="Maximum tokens for model output/answer (20% of window)"
+    )
+    assistant_embedding_dim: int = Field(
+        default=384,
+        description="Embedding dimension (must match sentence-transformers/all-MiniLM-L6-v2)"
+    )
+    assistant_chunk_size: int = Field(
+        default=384,
+        description="Target chunk size in tokens for note chunking (~288 words per chunk)"
+    )
+    assistant_chunk_overlap: int = Field(
+        default=64,
+        description="Token overlap between consecutive chunks (preserves context across boundaries)"
+    )   
+    # Hugging Face Models Configuration
+    hf_embedding_model: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        description="Hugging Face embedding model (384-dim)"
+    )
+    hf_generation_model: str = Field(
+        default="meta-llama/Llama-2-7b-chat-hf",
+        description="Hugging Face generation model for assistant (can be local or API)"
+    )
+    hf_use_api: bool = Field(
+        default=False,
+        description="Use Hugging Face Inference API instead of local model"
+    )
+    hf_generation_temperature: float = Field(
+        default=0.2,
+        description="Temperature for text generation (lower = more deterministic)"
+    )
+    hf_generation_timeout: int = Field(
+        default=30,
+        description="Timeout for generation requests in seconds"
+    )
+    
     @field_validator("cors_origins")
     @classmethod
     def parse_cors_origins(cls, v: str) -> List[str]:

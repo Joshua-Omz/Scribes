@@ -46,3 +46,5 @@ class Note(Base):
     annotations = relationship("Annotation", back_populates="note", cascade="all, delete")
     # Export jobs relationship
     export_jobs = relationship("ExportJob", back_populates="note", cascade="all, delete")
+    # Note chunks for AI assistant (token-aware RAG)
+    chunks = relationship("NoteChunk", back_populates="note", cascade="all, delete")
