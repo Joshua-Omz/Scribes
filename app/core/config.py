@@ -68,7 +68,11 @@ class Settings(BaseSettings):
     
     # AI/Embeddings (for future use)
     openai_api_key: str = Field(default="", description="OpenAI API key")
-    huggingface_api_key: str = Field(default="", description="Hugging Face API key")
+    huggingface_api_key: str = Field(
+        default="",
+        alias="HUGGINGFACE_API_KEY",
+        description="Hugging Face API key"
+    )
     embedding_model: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
         description="Embedding model identifier"
@@ -92,6 +96,18 @@ class Settings(BaseSettings):
     # - Max output:     400 tokens (20%) - Generated pastoral answer
     # - Safety buffer:  148 tokens (7%)  - Formatting overhead & margin
     
+    assistant_model_top_p: float = Field(
+        default= 0.9
+    )
+    assistant_model_repition_penalty: float = Field(
+        default= 1.1
+    )
+    
+    assistant_model_temperature: float = Field(
+        default=0.2,
+        description = "this is the rate of creativity, we need to set this low"
+
+    )
     assistant_model_context_window: int = Field(
         default=2048,
         description="Total context window for generation model (Llama-2/Llama-3.2)"
@@ -138,7 +154,7 @@ class Settings(BaseSettings):
         description="Hugging Face generation model for assistant (can be local or API)"
     )
     hf_use_api: bool = Field(
-        default=False,
+        default=True,
         description="Use Hugging Face Inference API instead of local model"
     )
     hf_generation_temperature: float = Field(

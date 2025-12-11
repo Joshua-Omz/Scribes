@@ -34,8 +34,11 @@ arq==0.25.0
 
 # AI/Embeddings
 sentence-transformers==5.1.2
+transformers==4.57.3
+huggingface-hub>=0.20.0
 pgvector==0.2.5
-numpy==1.24.3
+numpy>=1.26.0
+torch>=2.0.0
 
 # Testing
 pytest==7.4.4
@@ -47,4 +50,4 @@ httpx==0.26.0
 black==24.1.1
 flake8==7.0.0
 isort==5.13.2
-mypy==1.8.0
+numpydoc==1.8.0

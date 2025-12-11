@@ -15,12 +15,18 @@ Key responsibilities:
 from typing import List, Optional
 from functools import lru_cache
 import logging
+import warnings
 
 from transformers import AutoTokenizer
+from transformers.utils import logging as transformers_logging
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Suppress transformers warnings for cleaner logs
+transformers_logging.set_verbosity_error()
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
 
 
 class TokenizerService:
@@ -32,16 +38,16 @@ class TokenizerService:
     
     The tokenizer is loaded once and cached for performance.
     """
-    
-    def __init__(self, model_name: Optional[str] = None):
+    tokenizer = AutoTokenizer.from_pretrained(settings.hf_embedding_model, trust_remote_code=True, use_fast=True)   
+    def __init__(self, model_name: Optional[str] = settings.hf_embedding_model, tokenizer: Optional[AutoTokenizer] = tokenizer) -> None:
         """
         Initialize tokenizer service.
         
         Args:
             model_name: HuggingFace model name. Defaults to embedding model from config.
         """
-        self.model_name = model_name or settings.hf_embedding_model  # Use embedding model tokenizer
-        self._tokenizer = None
+        self.model_name = model_name  
+        self._tokenizer = tokenizer
         logger.info(f"TokenizerService initialized for model: {self.model_name}")
     
     @property
@@ -51,15 +57,10 @@ class TokenizerService:
         
         Returns:
             AutoTokenizer instance
+            
+        Raises:
+            Exception: If tokenizer fails to load
         """
-        if self._tokenizer is None:
-            logger.info(f"Loading tokenizer: {self.model_name}")
-            self._tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                trust_remote_code=True,
-                use_fast=True  # Use fast tokenizer if available
-            )
-            logger.info(f"Tokenizer loaded successfully. Vocab size: {len(self._tokenizer)}")
         return self._tokenizer
     
     def count_tokens(self, text: str) -> int:
@@ -70,17 +71,21 @@ class TokenizerService:
             text: Input text to tokenize
             
         Returns:
-            Number of tokens
+            Number of tokens (minimum 0)
             
         Example:
             >>> tokenizer_service.count_tokens("Hello, world!")
             4
         """
-        if not text:
+        if not text or not isinstance(text, str):
             return 0
         
-        tokens = self.tokenizer.encode(text, add_special_tokens=True)
-        return len(tokens)
+        try:
+            tokens = self.tokenizer.encode(text, add_special_tokens=True)
+            return len(tokens)
+        except Exception as e:
+            logger.warning(f"Error counting tokens: {e}. Falling back to estimate.")
+            return self.estimate_tokens(text)
     
     def encode(self, text: str, add_special_tokens: bool = True) -> List[int]:
         """
@@ -91,8 +96,17 @@ class TokenizerService:
             add_special_tokens: Whether to add special tokens (BOS, EOS, etc.)
             
         Returns:
-            List of token IDs
+            List of token IDs (empty list if text is empty)
+            
+        Raises:
+            ValueError: If text is not a string
         """
+        if not text:
+            return []
+        
+        if not isinstance(text, str):
+            raise ValueError(f"Text must be a string, got {type(text)}")
+        
         return self.tokenizer.encode(text, add_special_tokens=add_special_tokens)
     
     def decode(self, token_ids: List[int], skip_special_tokens: bool = True) -> str:
@@ -104,8 +118,17 @@ class TokenizerService:
             skip_special_tokens: Whether to remove special tokens from output
             
         Returns:
-            Decoded text string
+            Decoded text string (empty string if token_ids is empty)
+            
+        Raises:
+            ValueError: If token_ids is not a list
         """
+        if not token_ids:
+            return ""
+        
+        if not isinstance(token_ids, list):
+            raise ValueError(f"token_ids must be a list, got {type(token_ids)}")
+        
         return self.tokenizer.decode(token_ids, skip_special_tokens=skip_special_tokens)
     
     def truncate_to_tokens(self, text: str, max_tokens: int) -> str:
@@ -114,10 +137,13 @@ class TokenizerService:
         
         Args:
             text: Input text
-            max_tokens: Maximum number of tokens allowed
+            max_tokens: Maximum number of tokens allowed (must be > 0)
             
         Returns:
             Truncated text that fits within token limit
+            
+        Raises:
+            ValueError: If max_tokens <= 0
             
         Example:
             >>> long_text = "This is a very long sermon note..."
@@ -128,10 +154,15 @@ class TokenizerService:
         if not text:
             return ""
         
+        if max_tokens <= 0:
+            raise ValueError(f"max_tokens must be > 0, got {max_tokens}")
+        
         # Check if already within limit
         current_tokens = self.count_tokens(text)
         if current_tokens <= max_tokens:
             return text
+        
+        logger.debug(f"Truncating text from {current_tokens} to {max_tokens} tokens")
         
         # Encode and truncate
         token_ids = self.tokenizer.encode(
@@ -142,7 +173,17 @@ class TokenizerService:
         )
         
         # Decode back to text
-        return self.tokenizer.decode(token_ids, skip_special_tokens=True)
+        truncated = self.tokenizer.decode(token_ids, skip_special_tokens=True)
+        
+        # Verify truncation worked
+        final_count = self.count_tokens(truncated)
+        if final_count > max_tokens:
+            logger.warning(
+                f"Truncation resulted in {final_count} tokens (target: {max_tokens}). "
+                f"This may happen with special tokens."
+            )
+        
+        return truncated
     
     def chunk_text(
         self,
@@ -161,11 +202,14 @@ class TokenizerService:
         
         Args:
             text: Input text to chunk
-            chunk_size: Target size of each chunk in tokens
-            overlap: Number of tokens to overlap between chunks
+            chunk_size: Target size of each chunk in tokens (must be > overlap)
+            overlap: Number of tokens to overlap between chunks (must be >= 0)
             
         Returns:
-            List of text chunks
+            List of text chunks (empty list if text is empty)
+            
+        Raises:
+            ValueError: If chunk_size <= overlap or invalid parameters
             
         Example:
             >>> text = "Very long sermon note about faith..."
@@ -176,6 +220,18 @@ class TokenizerService:
         """
         if not text:
             return []
+        
+        # Validate parameters
+        if chunk_size <= 0:
+            raise ValueError(f"chunk_size must be > 0, got {chunk_size}")
+        
+        if overlap < 0:
+            raise ValueError(f"overlap must be >= 0, got {overlap}")
+        
+        if overlap >= chunk_size:
+            raise ValueError(
+                f"overlap ({overlap}) must be less than chunk_size ({chunk_size})"
+            )
         
         # Encode full text
         token_ids = self.tokenizer.encode(text, add_special_tokens=False)
@@ -191,9 +247,16 @@ class TokenizerService:
         for i in range(0, len(token_ids), stride):
             chunk_token_ids = token_ids[i:i + chunk_size]
             
+            # Skip empty chunks (shouldn't happen, but safety check)
+            if not chunk_token_ids:
+                continue
+            
             # Decode chunk back to text
             chunk_text = self.tokenizer.decode(chunk_token_ids, skip_special_tokens=True)
-            chunks.append(chunk_text)
+            
+            # Skip whitespace-only chunks
+            if chunk_text.strip():
+                chunks.append(chunk_text)
             
             # Stop if we've covered the entire text
             if i + chunk_size >= len(token_ids):
@@ -219,9 +282,44 @@ class TokenizerService:
             text: Input text
             
         Returns:
-            Estimated token count
+            Estimated token count (minimum 0)
         """
-        return len(text) // 4
+        if not text or not isinstance(text, str):
+            return 0
+        return max(0, len(text) // 4)
+    
+    def get_vocab_size(self) -> int:
+        """
+        Get the vocabulary size of the tokenizer.
+        
+        Returns:
+            Number of tokens in vocabulary
+        """
+        return len(self.tokenizer)
+    
+    def batch_count_tokens(self, texts: List[str]) -> List[int]:
+        """
+        Count tokens for multiple texts efficiently.
+        
+        Args:
+            texts: List of text strings
+            
+        Returns:
+            List of token counts corresponding to each text
+        """
+        if not texts:
+            return []
+        
+        return [self.count_tokens(text) for text in texts]
+    
+    def get_model_name(self) -> str:
+        """
+        Get the name of the model being used for tokenization.
+        
+        Returns:
+            Model name string
+        """
+        return self.model_name
 
 
 # Global singleton instance

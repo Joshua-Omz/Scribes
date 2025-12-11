@@ -22,7 +22,7 @@ This document is the final, implementation-ready blueprint that integrates **tok
 Client → assistant_router → assistant_service
          ├→ tokenizer_service (count/truncate/chunk)
          ├→ retrieval_service (pgvector; returns chunks)
-         ├→ context_builder (select/top-k + compression)
+         ├→ context_builder (select/top-k + compression of context)
          ├→ prompt_engine (templates + token budget enforcement)
          └→ hf_textgen_service (generate with caps)
 Response ← format + sources

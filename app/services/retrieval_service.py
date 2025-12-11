@@ -39,7 +39,7 @@ class RetrievalService:
         db: AsyncSession,
         query_embedding: List[float],
         user_id: int,
-        top_k: int = 50
+        top_k: int = settings.assistant_top_k   
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
         Retrieve top-k most relevant chunks for a query.
