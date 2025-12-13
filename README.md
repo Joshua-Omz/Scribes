@@ -2,6 +2,20 @@
 
 A knowledge and note organization system powered by AI, built with **FastAPI** and **PostgreSQL**.
 
+---
+
+## 🗺️ Quick Navigation
+
+**New to the project?** Start here:
+
+- 📁 **[PROJECT_ORGANIZATION.md](./PROJECT_ORGANIZATION.md)** - Complete project structure guide
+- 📖 **[REORGANIZATION_SUMMARY.md](./REORGANIZATION_SUMMARY.md)** - What changed and where things are
+- 🤖 **[AI Assistant Docs](./docs/services/ai-assistant/README.md)** - Complete AI Assistant documentation
+- 🧪 **[Test Documentation](./tests/README.md)** - How to run and write tests
+- 🔧 **[Scripts Documentation](./scripts/README.md)** - All utility scripts explained
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
