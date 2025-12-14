@@ -27,7 +27,7 @@ from app.schemas.semantic_schemas import (
     EmbeddingStatusResponse,
     RegenerationStatusResponse
 )
-from app.services.embedding_service import get_embedding_service, EmbeddingGenerationError
+from app.services.ai.embedding_service import get_embedding_service, EmbeddingGenerationError
 
 logger = logging.getLogger(__name__)
 

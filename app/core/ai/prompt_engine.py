@@ -3,7 +3,7 @@
 from typing import Dict, Any, Optional
 import logging
 
-from app.services.tokenizer_service import get_tokenizer_service
+from app.services.ai.tokenizer_service import get_tokenizer_service
 from app.core.config import settings
 import re
 

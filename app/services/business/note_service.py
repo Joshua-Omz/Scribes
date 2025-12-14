@@ -17,7 +17,7 @@ from app.schemas.note_schemas import (
     NoteListResponse,
     NoteSearchRequest
 )
-from app.services.embedding_service import get_embedding_service
+from app.services.ai.embedding_service import get_embedding_service
 
 logger = logging.getLogger(__name__)
 

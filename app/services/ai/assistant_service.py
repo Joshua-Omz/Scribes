@@ -32,11 +32,11 @@ import logging
 import time
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.tokenizer_service import get_tokenizer_service
-from app.services.embedding_service import EmbeddingService
-from app.services.retrieval_service import get_retrieval_service
-from app.services.context_builder import get_context_builder
-from app.core.prompt_engine import get_prompt_engine
+from app.services.ai.tokenizer_service import get_tokenizer_service
+from app.services.ai.embedding_service import EmbeddingService
+from app.services.ai.retrieval_service import get_retrieval_service
+from app.services.ai.context_builder import get_context_builder
+from app.core.ai.prompt_engine import get_prompt_engine
 from app.services.hf_textgen_service import get_textgen_service, GenerationError
 from app.core.config import settings
 

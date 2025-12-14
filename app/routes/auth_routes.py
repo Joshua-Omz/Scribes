@@ -27,7 +27,7 @@ from app.schemas.auth_schemas import (
     ResetPasswordRequest,
     MessageResponse,
 )
-from app.services.auth_service import AuthService
+from app.services.business.auth_service import AuthService
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])

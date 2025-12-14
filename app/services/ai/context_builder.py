@@ -7,7 +7,7 @@ Fits chunks into token budget while preserving attribution.
 from typing import List, Dict, Any
 import logging
 
-from app.services.tokenizer_service import get_tokenizer_service
+from app.services.ai.tokenizer_service import get_tokenizer_service
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)

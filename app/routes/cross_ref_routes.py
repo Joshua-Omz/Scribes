@@ -12,7 +12,7 @@ from app.core.dependencies import get_current_active_user
 from app.models.user_model import User
 from app.repositories.cross_ref_repository import CrossRefRepository
 from app.repositories.note_repository import NoteRepository
-from app.services.cross_ref_service import CrossRefService
+from app.services.business.cross_ref_service import CrossRefService
 from app.schemas.cross_ref_schemas import (
     CrossRefCreate,
     CrossRefUpdate,
