@@ -1,6 +1,6 @@
 
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import logging
 
 from app.services.ai.tokenizer_service import get_tokenizer_service
@@ -102,8 +102,8 @@ Remember: You're helping users explore their own sermon collection, not teaching
                 ("\n... and more" if len(sources) > 5 else "")
             )
 
-            # Assemble prompt in Llama-2-chat format
-            prompt = f"""<s>[INST] <<SYS>>
+        # Assemble prompt in Llama-2-chat format
+        prompt = f"""<s>[INST] <<SYS>>
 {self.SYSTEM_PROMPT}
 <</SYS>>
 
@@ -113,15 +113,88 @@ SERMON NOTE EXCERPTS:
 
 USER QUESTION:
 {safe_query} [/INST]"""
-            logger.info(
+        
+        logger.info(
             f"Prompt built: {len(prompt)} chars, "
             f"query='{safe_query[:50]}...', "
             f"{len(sources) if sources else 0} sources"
         )
+        
+        return prompt
+    
+    def build_messages(
+        self,
+        user_query: str,
+        context_text: str,
+        sources: list = None
+    ) -> List[Dict[str, str]]:
+        """
+        Build chat messages list for modern instruction-tuned models.
+        
+        Format for chat_completion API:
+        [
+            {"role": "system", "content": "<system prompt>"},
+            {"role": "user", "content": "<context + query>"}
+        ]
+        
+        Args:
+            user_query: User's question (will be sanitized)
+            context_text: Formatted context from ContextBuilder
+            sources: List of source dicts (for additional context)
             
-            return prompt 
-        def _sanitize_user_query(self, query: str) -> str:
-            """
+        Returns:
+            List of message dicts ready for chat_completion API
+            
+        Raises:
+            ValueError: If inputs invalid
+        """
+        if not user_query or not user_query.strip():
+            raise ValueError("user_query cannot be empty")
+        
+        if not context_text or not context_text.strip():
+            logger.warning("No context provided - assistant may not have relevant info")
+            context_text = "(No relevant sermon notes found for this query)"
+        
+        # Sanitize user query (prevent injection)
+        safe_query = self._sanitize_user_query(user_query)
+        
+        # Build source summary (helps LLM understand available notes)
+        source_summary = ""
+        if sources:
+            source_list = [f"- {s['note_title']}" for s in sources[:5]]  # Top 5
+            source_summary = (
+                "\n\nNOTES AVAILABLE:\n" + 
+                "\n".join(source_list) +
+                ("\n... and more" if len(sources) > 5 else "")
+            )
+
+        # Build messages list
+        messages = [
+            {
+                "role": "system",
+                "content": self.SYSTEM_PROMPT
+            },
+            {
+                "role": "user",
+                "content": f"""SERMON NOTE EXCERPTS:
+{context_text}
+{source_summary}
+
+USER QUESTION:
+{safe_query}"""
+            }
+        ]
+        
+        logger.info(
+            f"Chat messages built: {len(messages)} messages, "
+            f"query='{safe_query[:50]}...', "
+            f"{len(sources) if sources else 0} sources"
+        )
+        
+        return messages
+    
+    def _sanitize_user_query(self, query: str) -> str:
+        """
         Sanitize user query to prevent prompt injection.
         
         Defenses:
@@ -136,9 +209,9 @@ USER QUESTION:
         Returns:
             Sanitized query safe for prompt inclusion
         """
-            #patterns indicating injection attempts
+        # Patterns indicating injection attempts
         injection_patterns = [
-                r"ignore\s+(all\s+)?previous",
+            r"ignore\s+(all\s+)?previous",
             r"disregard\s+(all\s+)?instructions",
             r"forget\s+everything",
             r"new\s+instructions",
@@ -152,8 +225,8 @@ USER QUESTION:
             r"\[/INST\]",
             r"<s>",
             r"</s>",
-
-            ]
+        ]
+        
         query_lower = query.lower()
         for pattern in injection_patterns:
             if re.search(pattern, query_lower, re.IGNORECASE):
@@ -180,6 +253,7 @@ USER QUESTION:
             logger.warning(f"Query truncated to {max_chars} chars")
         
         return query
+    
     def build_no_context_response(self, user_query: str) -> str:
         """
         Build a polite response when no relevant context found.
@@ -246,54 +320,6 @@ USER QUESTION:
 # Singleton
 _prompt_engine = None
 
-def get_prompt_engine() -> PromptEngine:
-    """Get or create prompt engine singleton."""
-    global _prompt_engine
-    if _prompt_engine is None:
-        _prompt_engine = PromptEngine()
-    return _prompt_engine
-    
-
-
-            
-            
-      
-       
-          
-    
-    def get_default_system_prompt(self) -> str:
-        """
-        Get default system instructions.
-        
-        ⚠️  YOU MUST IMPLEMENT THIS
-        
-        Should define:
-        - Assistant role and capabilities
-        - How to use context
-        - Citation requirements
-        - Boundaries (what NOT to do)
-        - Tone and style
-        """
-        raise NotImplementedError("System prompt not defined")
-    
-    def detect_prompt_injection(self, user_query: str) -> bool:
-        """
-        Detect potential prompt injection attempts.
-        
-        ⚠️  YOU MUST IMPLEMENT THIS
-        
-        Look for:
-        - Instructions to ignore previous context
-        - Role-playing attempts
-        - System prompt leakage attempts
-        - Malicious instructions
-        """
-        raise NotImplementedError("Prompt injection detection not implemented")
-
-
-# Singleton
-_prompt_engine = None
-
 
 def get_prompt_engine() -> PromptEngine:
     """Get or create prompt engine singleton."""
@@ -301,4 +327,5 @@ def get_prompt_engine() -> PromptEngine:
     if _prompt_engine is None:
         _prompt_engine = PromptEngine()
     return _prompt_engine
+
 

@@ -37,7 +37,7 @@ from app.services.ai.embedding_service import EmbeddingService
 from app.services.ai.retrieval_service import get_retrieval_service
 from app.services.ai.context_builder import get_context_builder
 from app.core.ai.prompt_engine import get_prompt_engine
-from app.services.hf_textgen_service import get_textgen_service, GenerationError
+from app.services.ai.hf_inference_service import get_inference_service, GenerationError
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class AssistantService:
         self.retrieval = get_retrieval_service()
         self.context_builder = get_context_builder()
         self.prompt_engine = get_prompt_engine()
-        self.textgen = get_textgen_service()
+        self.inference = get_inference_service()  # Updated to new service
         logger.info("AssistantService initialized")
     
     async def query(
@@ -176,27 +176,26 @@ class AssistantService:
                 }
             
             # ============================================================
-            # STEP 5: Prompt Assembly (Llama-2-chat Format)
+            # STEP 5: Prompt Assembly (Chat Messages Format)
             # ============================================================
-            logger.debug("Assembling final prompt...")
-            final_prompt = self.prompt_engine.build_prompt(
+            logger.debug("Assembling chat messages...")
+            messages = self.prompt_engine.build_messages(
                 user_query=user_query,
                 context_text=context_text,
                 sources=sources
             )
-            logger.debug(f"Final prompt assembled: {len(final_prompt)} characters")
+            logger.debug(f"Chat messages assembled: {len(messages)} messages")
             
             # ============================================================
-            # STEP 6: Text Generation (LLM Inference)
+            # STEP 6: Text Generation (LLM Inference via Chat Completion)
             # ============================================================
-            logger.info("Calling text generation service...")
+            logger.info("Calling inference service (chat completion)...")
             try:
-                raw_answer = self.textgen.generate(
-                    prompt=final_prompt,
-                    max_new_tokens=settings.assistant_max_output_tokens,
+                raw_answer = self.inference.generate_from_messages(
+                    messages=messages,
+                    max_tokens=settings.assistant_max_output_tokens,
                     temperature=settings.hf_generation_temperature,
-                    top_p=settings.assistant_model_top_p,
-                    repetition_penalty=settings.assistant_model_repition_penalty
+                    top_p=settings.assistant_model_top_p
                 )
                 logger.info(f"Answer generated: {len(raw_answer)} characters")
                 

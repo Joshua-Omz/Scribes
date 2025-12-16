@@ -10,7 +10,7 @@ Services:
 - TokenizerService: Token-aware text processing
 - ChunkingService: Text chunking with configurable overlap
 - ContextBuilder: Smart context assembly for LLM prompts
-- HFTextGenService: Hugging Face API integration for text generation
+- HFInferenceService: Hugging Face API integration (chat_completion & text_generation)
 
 Usage:
     from app.services.ai import AssistantService, EmbeddingService
@@ -25,7 +25,10 @@ from app.services.ai.retrieval_service import RetrievalService
 from app.services.ai.tokenizer_service import TokenizerService
 from app.services.ai.chunking_service import ChunkingService
 from app.services.ai.context_builder import ContextBuilder
-from app.services.ai.hf_textgen_service import HFTextGenService, GenerationError
+from app.services.ai.hf_inference_service import HFInferenceService, GenerationError
+
+# Backward compatibility aliases
+HFTextGenService = HFInferenceService
 
 __all__ = [
     "AssistantService",
@@ -35,6 +38,7 @@ __all__ = [
     "TokenizerService",
     "ChunkingService",
     "ContextBuilder",
-    "HFTextGenService",
+    "HFInferenceService",
+    "HFTextGenService",  # Backward compatibility
     "GenerationError",
 ]

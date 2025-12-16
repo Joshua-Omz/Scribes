@@ -150,12 +150,16 @@ class Settings(BaseSettings):
         description="Hugging Face embedding model (384-dim)"
     )
     hf_generation_model: str = Field(
-        default="meta-llama/Llama-2-7b-chat-hf",
-        description="Hugging Face generation model for assistant (can be local or API)"
+        default="meta-llama/Llama-3.2-3B-Instruct",
+        description="Hugging Face generation model for assistant. Modern instruction-tuned models (Llama-3.x, Mistral-Instruct) use chat_completion endpoint."
     )
     hf_use_api: bool = Field(
         default=True,
         description="Use Hugging Face Inference API instead of local model"
+    )
+    hf_api_mode: str = Field(
+        default="chat",
+        description="API mode: 'chat' for chat_completion (instruction models) or 'text' for text_generation (completion models)"
     )
     hf_generation_temperature: float = Field(
         default=0.2,

@@ -28,7 +28,7 @@ class RetrievalService:
     
     def __init__(self):
         """Initialize retrieval service."""
-        self.relevance_threshold = 0.6  # Scores above = high relevance
+        self.relevance_threshold = 0.15  # Adjusted for sentence-transformer Q&A matching (lower than statement-to-statement)
         logger.info(
             f"RetrievalService initialized "
             f"(relevance_threshold={self.relevance_threshold})"
@@ -111,6 +111,7 @@ class RetrievalService:
         
         try:
             # Execute query
+            # Note: pgvector with asyncpg requires string format for vector parameters
             result = await db.execute(
                 query_sql,
                 {
