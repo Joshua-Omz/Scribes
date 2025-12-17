@@ -110,7 +110,28 @@ class AssistantService:
                 logger.warning(f"Empty query received from user {user_id}")
                 raise ValueError("Query cannot be empty")
             
-            query_tokens = self.tokenizer.count_tokens(user_query)
+            # Count original query tokens
+            original_query_tokens = self.tokenizer.count_tokens(user_query)
+            query_truncated = False
+            
+            # Truncate query if it exceeds budget
+            if original_query_tokens > settings.assistant_user_query_tokens:
+                logger.warning(
+                    f"Query exceeds token limit: {original_query_tokens} > "
+                    f"{settings.assistant_user_query_tokens}. Truncating..."
+                )
+                user_query = self.tokenizer.truncate_to_tokens(
+                    user_query, 
+                    settings.assistant_user_query_tokens
+                )
+                query_truncated = True
+                query_tokens = self.tokenizer.count_tokens(user_query)
+                logger.info(
+                    f"Query truncated: {original_query_tokens} → {query_tokens} tokens"
+                )
+            else:
+                query_tokens = original_query_tokens
+            
             logger.info(f"Query tokens: {query_tokens}")
             
             # ============================================================
@@ -170,7 +191,8 @@ class AssistantService:
                         "chunks_skipped": len(low_rel),
                         "context_tokens": 0,
                         "query_tokens": query_tokens,
-                        "truncated": False,
+                        "query_truncated": query_truncated,
+                        "context_truncated": False,
                         "duration_ms": duration_ms
                     } if include_metadata else None
                 }
@@ -215,7 +237,8 @@ class AssistantService:
                         "chunks_skipped": len(context_result["chunks_skipped"]),
                         "context_tokens": context_result["total_tokens"],
                         "query_tokens": query_tokens,
-                        "truncated": context_result["truncated"],
+                        "query_truncated": query_truncated,
+                        "context_truncated": context_result["truncated"],
                         "duration_ms": duration_ms
                     } if include_metadata else None
                 }
@@ -241,7 +264,8 @@ class AssistantService:
                     "chunks_skipped": len(context_result["chunks_skipped"]),
                     "context_tokens": context_result["total_tokens"],
                     "query_tokens": query_tokens,
-                    "truncated": context_result["truncated"],
+                    "query_truncated": query_truncated,
+                    "context_truncated": context_result["truncated"],
                     "duration_ms": duration_ms,
                     "sources_count": len(sources)
                 } if include_metadata else None
@@ -254,13 +278,14 @@ class AssistantService:
                     "user_id": user_id,
                     "query_length": len(user_query),
                     "query_tokens": query_tokens,
+                    "query_truncated": query_truncated,
                     "chunks_retrieved": len(high_rel) + len(low_rel),
                     "chunks_used": len(context_result["chunks_used"]),
                     "context_tokens": context_result["total_tokens"],
+                    "context_truncated": context_result["truncated"],
                     "answer_length": len(answer),
                     "duration_ms": duration_ms,
-                    "sources_count": len(sources),
-                    "truncated": context_result["truncated"]
+                    "sources_count": len(sources)
                 }
             )
             
