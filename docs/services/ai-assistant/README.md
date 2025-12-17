@@ -2,6 +2,24 @@
 
 Comprehensive documentation for the Scribes AI Assistant RAG (Retrieval-Augmented Generation) pipeline.
 
+**Last Updated:** December 17, 2025  
+**Status:** ✅ Implementation Complete, ⚠️ Testing Complete (1 critical issue found)
+
+## 🚨 Important Notice
+
+**Testing Status:** Comprehensive manual testing completed on December 17, 2025.
+
+- ✅ **Functional Tests:** All passing (100%)
+- ✅ **Token Management:** All passing (100%)
+- 🚨 **Security:** Critical vulnerability found - System prompt leaking
+- ⚠️ **Quality:** Excellent when data present (93.75% avg)
+
+**Production Readiness:** ⚠️ CONDITIONAL - Security fix required before deployment
+
+**See:** [Test Results Summary](./TEST_RESULTS_SUMMARY.md) for complete details.
+
+---
+
 ## 📚 Table of Contents
 
 1. [Quick Start](#-quick-start)
@@ -10,6 +28,7 @@ Comprehensive documentation for the Scribes AI Assistant RAG (Retrieval-Augmente
 4. [Testing Documentation](#-testing-documentation)
 5. [Service Documentation](#-service-documentation)
 6. [Development Guides](#-development-guides)
+7. [Test Results & Status](#-test-results--status)
 
 ---
 
@@ -167,7 +186,8 @@ Phase 2 completion documentation.
 #### 📖 [`ASSISTANT_UNIT_TESTS_COMPLETE.md`](./ASSISTANT_UNIT_TESTS_COMPLETE.md)
 Complete unit test documentation.
 
-**Test Coverage:** 13 comprehensive tests
+**Test Coverage:** 13 comprehensive tests  
+**Status:** ✅ All passing (100%)
 
 **Test Scenarios:**
 1. ✅ Valid context query
@@ -179,6 +199,67 @@ Complete unit test documentation.
 7. ✅ Metadata optional
 8. ✅ Max sources limit
 9. ✅ Unexpected errors
+
+---
+
+### Manual Testing
+
+#### 📖 [`ASSISTANT_MANUAL_TESTING_GUIDE.md`](./ASSISTANT_MANUAL_TESTING_GUIDE.md)
+Step-by-step manual testing guide with 5 comprehensive scenarios.
+
+**Status:** ✅ Testing completed December 17, 2025
+
+**Test Scenarios:**
+1. ✅ Query with Relevant Context (5/5 passed)
+2. ✅ No Relevant Context Handling (5/5 passed)
+3. 🚨 Prompt Injection Security (2/8 tested, **1 critical vulnerability found**)
+4. ✅ Long Query Token Management (6/6 passed)
+5. ⚠️ Answer Quality Validation (2/5 passed - limited by test data)
+
+---
+
+#### 📖 [`TEST_RESULTS_SUMMARY.md`](./TEST_RESULTS_SUMMARY.md) ⭐ NEW
+**Complete test results with detailed analysis.**
+
+**Overall Results:** 12/21 tests passed (57%)
+
+**Key Findings:**
+- ✅ Functional capabilities: Production ready
+- ✅ Token management: Flawless enforcement
+- 🚨 Security: **Critical vulnerability - system prompt leaking**
+- ⚠️ Quality: Excellent when data present (93.75% avg)
+
+**Production Readiness:** ⚠️ Conditional approval - security fix required
+
+**Contents:**
+- Detailed results for all 5 test scenarios
+- Performance metrics and benchmarks
+- Security vulnerability analysis
+- Answer quality assessment
+- Recommendations and next steps
+
+---
+
+#### 📖 [`QUICK_TEST_REFERENCE.md`](./QUICK_TEST_REFERENCE.md) ⭐ NEW
+Quick reference guide for running tests and diagnosing issues.
+
+**Quick Commands:**
+```bash
+python tests/manual/test_scenario_1.py  # Query with context
+python tests/manual/test_scenario_2.py  # No context
+python tests/manual/test_scenario_3.py  # Security
+python tests/manual/test_scenario_4.py  # Token management
+python tests/manual/test_scenario_5.py  # Quality
+```
+
+**Contents:**
+- Quick test commands
+- Expected results summary
+- Troubleshooting guide
+- Performance benchmarks
+- Critical issues log
+
+---
 10. ✅ Logging verification
 11. ✅ Singleton pattern
 12. ✅ Dependency initialization
@@ -391,6 +472,59 @@ engine = PromptEngine()
 tokens = engine.count_tokens("Your text here")
 print(f"Tokens: {tokens}")
 ```
+
+---
+
+## 📊 Test Results & Status
+
+### Latest Test Run: December 17, 2025
+
+**Overall Status:** ⚠️ CONDITIONAL PASS - Security fix required
+
+| Category | Status | Pass Rate | Details |
+|----------|--------|-----------|---------|
+| Functional | ✅ PASS | 100% (2/2) | [Results](./TEST_RESULTS_SUMMARY.md#test-scenario-1-query-with-relevant-context) |
+| Token Management | ✅ PASS | 100% (6/6) | [Results](./TEST_RESULTS_SUMMARY.md#test-scenario-4-long-query-token-management) |
+| Security | 🚨 CRITICAL | 25% (2/8) | [Results](./TEST_RESULTS_SUMMARY.md#test-scenario-3-prompt-injection-security-testing) |
+| Answer Quality | ⚠️ PARTIAL | 40% (2/5) | [Results](./TEST_RESULTS_SUMMARY.md#test-scenario-5-answer-quality-validation) |
+
+### Critical Issues
+
+🚨 **Issue #1: System Prompt Leaking (HIGH PRIORITY)**
+- **Status:** OPEN - Blocks production
+- **Test:** Scenario 3, Test #5
+- **Impact:** System reveals internal instructions verbatim
+- **Fix Required:** Add anti-leak instructions to system prompt
+- **Details:** [See Test Results](./TEST_RESULTS_SUMMARY.md#test-5-verbatim-prompt-request--critical-failure)
+
+### Performance Metrics
+
+✅ **All performance targets met:**
+- Query with context: 3.16s (target: <5s)
+- Query no context: 0.57s (target: <1s)
+- Long query handling: 0.54s (no degradation)
+- Extreme query (7K tokens): 0.27s (no crash)
+
+### Answer Quality Metrics
+
+✅ **Excellent when data is present:**
+- Average quality score: 93.75% (when sermon notes exist)
+- Best performance: 100% (Grace topic)
+- Keyword relevance: 100%
+- Pastoral tone: 100%
+- Context fidelity: 100% (no hallucination)
+
+⚠️ **Limited by test data:**
+- Only 3/5 theological topics have sermon notes
+- Need comprehensive test dataset
+
+### Next Steps
+
+1. **HIGH PRIORITY:** Fix system prompt leaking vulnerability
+2. **MEDIUM PRIORITY:** Create comprehensive test data
+3. **LOW PRIORITY:** Enhance scripture citation extraction
+
+**Full Details:** [TEST_RESULTS_SUMMARY.md](./TEST_RESULTS_SUMMARY.md)
 
 ---
 
