@@ -32,6 +32,25 @@ tenacity==8.2.3
 redis==5.0.1
 arq==0.25.0
 
+# Production Features
+# Rate Limiting
+slowapi==0.1.9
+
+# Caching
+aiocache==0.12.2
+msgpack==1.0.7
+
+# Observability & Metrics
+prometheus-client==0.19.0
+prometheus-fastapi-instrumentator==6.1.0
+
+# Reliability
+pybreaker==1.0.1
+
+# Tracing
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+
 # AI/Embeddings
 sentence-transformers==5.1.2
 transformers==4.57.3

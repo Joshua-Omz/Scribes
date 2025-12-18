@@ -83,10 +83,23 @@ class Settings(BaseSettings):
         default="redis://localhost:6379",
         description="Redis connection URL for background tasks"
     )
+    redis_host: str = Field(default="localhost", description="Redis host")
+    redis_port: int = Field(default=6379, description="Redis port")
+    redis_db: int = Field(default=0, description="Redis database number")
     redis_max_connections: int = Field(default=10, description="Redis connection pool size")
     arq_job_timeout: int = Field(default=3600, description="ARQ job timeout in seconds (1 hour default)")
     arq_max_jobs: int = Field(default=10, description="Maximum concurrent ARQ jobs")
     arq_keep_result: int = Field(default=3600, description="How long to keep job results in seconds")
+    
+    # Rate Limiting Configuration
+    rate_limiting_enabled: bool = Field(default=True, description="Enable rate limiting")
+    rate_limit_per_minute: int = Field(default=10, description="Max requests per user per minute")
+    rate_limit_per_hour: int = Field(default=100, description="Max requests per user per hour")
+    rate_limit_per_day: int = Field(default=500, description="Max requests per user per day")
+    global_concurrent_limit: int = Field(default=100, description="Max concurrent requests system-wide")
+    global_hourly_limit: int = Field(default=1000, description="Max requests per hour system-wide")
+    user_daily_cost_limit: float = Field(default=5.0, description="Max API cost per user per day (USD)")
+    global_daily_cost_limit: float = Field(default=100.0, description="Max API cost system-wide per day (USD)")
     
     # AI Assistant Configuration (Phase 6 - RAG with token awareness)
     # Token Budget Breakdown (Total: 2048 tokens):

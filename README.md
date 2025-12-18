@@ -2,6 +2,22 @@
 
 A knowledge and note organization system powered by AI, built with **FastAPI** and **PostgreSQL**.
 
+**Status:** ✅ Functional | 🚧 Production Infrastructure In Progress (20% complete)
+
+---
+
+## 🎯 Production Readiness Status
+
+| Feature | Status | Impact | Docs |
+|---------|--------|--------|------|
+| **Rate Limiting** | ✅ READY | Abuse prevention, cost control | [Details](./docs/RATE_LIMITING_IMPLEMENTATION.md) |
+| **Response Caching** | ⏳ PENDING | 60-80% cost reduction | [Plan](./docs/PRODUCTION_READINESS_PLAN.md) |
+| **Observability** | ⏳ PENDING | Production monitoring | [Plan](./docs/PRODUCTION_READINESS_PLAN.md) |
+| **Circuit Breakers** | ⏳ PENDING | Fault tolerance | [Plan](./docs/PRODUCTION_READINESS_PLAN.md) |
+
+**Quick Start:** [Production Features Guide](./docs/PRODUCTION_FEATURES_QUICK_START.md)  
+**Full Progress:** [Implementation Status](./docs/PRODUCTION_INFRASTRUCTURE_PROGRESS.md)
+
 ---
 
 ## 🗺️ Quick Navigation
