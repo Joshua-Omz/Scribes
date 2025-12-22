@@ -78,28 +78,61 @@ class Settings(BaseSettings):
         description="Embedding model identifier"
     )
     
-    # Redis & Background Tasks
+    # Redis (for AI-specific caching: queries, embeddings, context)
     redis_url: str = Field(
         default="redis://localhost:6379",
-        description="Redis connection URL for background tasks"
+        description="Redis connection URL for AI caching and background tasks"
     )
     redis_host: str = Field(default="localhost", description="Redis host")
     redis_port: int = Field(default=6379, description="Redis port")
     redis_db: int = Field(default=0, description="Redis database number")
-    redis_max_connections: int = Field(default=10, description="Redis connection pool size")
+    redis_max_connections: int = Field(default=10, description="Redis connection pool size (AI cache + ARQ)")
     arq_job_timeout: int = Field(default=3600, description="ARQ job timeout in seconds (1 hour default)")
     arq_max_jobs: int = Field(default=10, description="Maximum concurrent ARQ jobs")
     arq_keep_result: int = Field(default=3600, description="How long to keep job results in seconds")
     
-    # Rate Limiting Configuration
-    rate_limiting_enabled: bool = Field(default=True, description="Enable rate limiting")
-    rate_limit_per_minute: int = Field(default=10, description="Max requests per user per minute")
-    rate_limit_per_hour: int = Field(default=100, description="Max requests per user per hour")
-    rate_limit_per_day: int = Field(default=500, description="Max requests per user per day")
-    global_concurrent_limit: int = Field(default=100, description="Max concurrent requests system-wide")
-    global_hourly_limit: int = Field(default=1000, description="Max requests per hour system-wide")
-    user_daily_cost_limit: float = Field(default=5.0, description="Max API cost per user per day (USD)")
-    global_daily_cost_limit: float = Field(default=100.0, description="Max API cost system-wide per day (USD)")
+    # ============================================================================
+    # AI CACHE CONFIGURATION (Phase 2: Semantic Caching)
+    # ============================================================================
+    # Three-layer caching strategy:
+    # - L1 (Query Result): Complete AI responses (highest value, user+query specific)
+    # - L2 (Embedding): Query embeddings (expensive to compute, shared across users)
+    # - L3 (Context): Retrieved sermon chunks (short-lived, user-specific)
+    
+    cache_enabled: bool = Field(
+        default=True,
+        description="Master switch for AI caching (disable for debugging)"
+    )
+    
+    # L1: Query Result Cache (complete AI responses)
+    cache_query_ttl: int = Field(
+        default=86400,  # 24 hours
+        description="L1 cache TTL: How long to cache complete AI responses (seconds)"
+    )
+    
+    # L2: Embedding Cache (query embeddings - expensive to compute)
+    cache_embedding_ttl: int = Field(
+        default=604800,  # 7 days
+        description="L2 cache TTL: How long to cache query embeddings (seconds)"
+    )
+    
+    # L3: Context Cache (retrieved sermon chunks - user notes may change)
+    cache_context_ttl: int = Field(
+        default=3600,  # 1 hour
+        description="L3 cache TTL: How long to cache retrieved context chunks (seconds)"
+    )
+    
+    # Semantic similarity threshold for cache hits
+    cache_similarity_threshold: float = Field(
+        default=0.85,
+        description="Cosine similarity threshold for semantic cache matching (0-1, higher = stricter)"
+    )
+    
+    # Cost Tracking (Service-Level Responsibility)
+    # Gateway handles: rate limiting, per-IP limits, global traffic control
+    # Service handles: token usage tracking, per-request cost calculation
+    user_daily_cost_limit: float = Field(default=5.0, description="Max API cost per user per day (USD) - for alerts")
+    global_daily_cost_limit: float = Field(default=100.0, description="Max API cost system-wide per day (USD) - for alerts")
     
     # AI Assistant Configuration (Phase 6 - RAG with token awareness)
     # Token Budget Breakdown (Total: 2048 tokens):

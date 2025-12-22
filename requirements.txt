@@ -32,22 +32,16 @@ tenacity==8.2.3
 redis==5.0.1
 arq==0.25.0
 
-# Production Features
-# Rate Limiting
-slowapi==0.1.9
+# Service-Level Production Features (Gateway handles: rate limiting, global metrics, edge caching)
 
-# Caching
+# AI-Specific Caching (semantic caching for queries, embeddings, context)
 aiocache==0.12.2
 msgpack==1.0.7
 
-# Observability & Metrics
-prometheus-client==0.19.0
-prometheus-fastapi-instrumentator==6.1.0
-
-# Reliability
+# Circuit Breakers (for LLM dependency protection)
 pybreaker==1.0.1
 
-# Tracing
+# Distributed Tracing (service spans, not root trace)
 opentelemetry-api==1.21.0
 opentelemetry-sdk==1.21.0
 

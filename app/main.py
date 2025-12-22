@@ -30,6 +30,14 @@ async def lifespan(app: FastAPI):
     print(f"📍 Environment: {settings.app_env}")
     print(f"🔧 Debug mode: {settings.debug}")
     
+    # Initialize Redis cache for AI caching (Phase 2)
+    from app.core.cache import init_cache, close_cache
+    await init_cache()
+    if settings.cache_enabled:
+        print("✅ Redis AI cache initialized")
+    else:
+        print("⚠️  AI cache disabled (CACHE_ENABLED=false)")
+    
     # Register event listeners for automatic embedding generation
     from app.models.events import register_note_events
     register_note_events()
@@ -39,6 +47,8 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     print("🛑 Shutting down application...")
+    await close_cache()
+    print("✅ Redis cache closed")
     await close_db()
     print("✅ Database connections closed")
 

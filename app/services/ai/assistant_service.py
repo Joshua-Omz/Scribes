@@ -1,16 +1,21 @@
 """
-AI Assistant service - orchestrates the full RAG pipeline.
+AI Assistant service - orchestrates the full RAG pipeline with 3-layer caching.
 
 🟡 COLLABORATIVE: AI can scaffold, YOU review and enhance
 
 This service orchestrates:
 1. Query tokenization and validation
-2. Query embedding generation
-3. Chunk retrieval (vector search)
+2. Query embedding generation (L2 CACHED)
+3. Chunk retrieval (vector search) (L3 CACHED)
 4. Context building (token-aware)
 5. Prompt assembly
 6. Text generation
-7. Post-processing and formatting
+7. Post-processing and formatting (L1 CACHED)
+
+Phase 2 Caching Integration:
+- L1 (Query Result Cache): Complete responses (24h TTL, 40% hit rate target)
+- L2 (Embedding Cache): Query embeddings (7d TTL, 60% hit rate target)
+- L3 (Context Cache): Retrieved chunks (1h TTL, 70% hit rate target)
 
 Key responsibilities:
 - Coordinate all sub-services
@@ -18,18 +23,13 @@ Key responsibilities:
 - Log metrics and events
 - Ensure proper async flow
 - Maintain user isolation throughout
-
-AI can create basic flow, but YOU should:
-- Add comprehensive error handling
-- Add metrics/observability
-- Add business logic (e.g., query classification)
-- Optimize performance
-- Add caching integration
+- Cache intelligent layering for cost optimization
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
 import time
+import hashlib
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.ai.tokenizer_service import get_tokenizer_service
@@ -40,24 +40,50 @@ from app.core.ai.prompt_engine import get_prompt_engine
 from app.services.ai.hf_inference_service import get_inference_service, GenerationError
 from app.core.config import settings
 
+# Phase 2: Import caching layers
+from app.core.cache import RedisCacheManager
+from app.services.ai.caching.query_cache import QueryCache
+from app.services.ai.caching.embedding_cache import EmbeddingCache
+from app.services.ai.caching.context_cache import ContextCache
+
 logger = logging.getLogger(__name__)
 
 
 class AssistantService:
     """
-    Main service for AI assistant queries.
+    Main service for AI assistant queries with 3-layer caching.
     
     🟡 SCAFFOLD - AI provides structure, YOU enhance with business logic
     """
     
-    def __init__(self):
-        """Initialize assistant service with dependencies."""
+    def __init__(self, cache_manager: Optional[RedisCacheManager] = None):
+        """
+        Initialize assistant service with dependencies.
+        
+        Args:
+            cache_manager: Optional Redis cache manager for caching layers
+        """
         self.tokenizer = get_tokenizer_service()
         self.embedding_service = EmbeddingService()
         self.retrieval = get_retrieval_service()
         self.context_builder = get_context_builder()
         self.prompt_engine = get_prompt_engine()
-        self.inference = get_inference_service()  # Updated to new service
+        self.inference = get_inference_service()
+        
+        # Initialize cache layers (Phase 2)
+        if cache_manager and cache_manager.is_available:
+            self.query_cache = QueryCache(cache_manager)
+            self.embedding_cache = EmbeddingCache(cache_manager)
+            self.context_cache = ContextCache(cache_manager)
+            self.caching_enabled = True
+            logger.info("AssistantService initialized with 3-layer caching ✅")
+        else:
+            self.query_cache = None
+            self.embedding_cache = None
+            self.context_cache = None
+            self.caching_enabled = False
+            logger.warning("AssistantService initialized WITHOUT caching ⚠️")
+        
         logger.info("AssistantService initialized")
     
     async def query(
@@ -135,26 +161,94 @@ class AssistantService:
             logger.info(f"Query tokens: {query_tokens}")
             
             # ============================================================
-            # STEP 2: Embedding Generation
+            # STEP 2: Embedding Generation (L2 CACHED)
             # ============================================================
             logger.debug("Generating query embedding...")
-            query_embedding = self.embedding_service.generate(user_query)
+            
+            # Try L2 cache first
+            query_embedding = None
+            if self.caching_enabled and self.embedding_cache:
+                query_embedding = await self.embedding_cache.get(user_query)
+            
+            # L2 miss - compute embedding
+            if query_embedding is None:
+                query_embedding = self.embedding_service.generate(user_query)
+                
+                # Store in L2 cache
+                if self.caching_enabled and self.embedding_cache:
+                    await self.embedding_cache.set(user_query, query_embedding)
+            
+            # Generate embedding hash for L3 cache key
+            embedding_hash = hashlib.sha256(query_embedding.tobytes()).hexdigest()
+            
             logger.debug(f"Query embedding generated: {len(query_embedding)} dimensions")
             
             # ============================================================
-            # STEP 3: Chunk Retrieval (Vector Search with User Isolation)
+            # STEP 3: Chunk Retrieval (Vector Search with User Isolation) (L3 CACHED)
             # ============================================================
             logger.debug(f"Retrieving chunks with top_k={settings.assistant_top_k}...")
-            high_rel, low_rel = await self.retrieval.retrieve_top_chunks(
-                db=db,
-                query_embedding=query_embedding,
-                user_id=user_id,
-                top_k=settings.assistant_top_k
-            )
-            logger.info(
-                f"Retrieved {len(high_rel)} high-relevance, "
-                f"{len(low_rel)} low-relevance chunks"
-            )
+            
+            # Try L3 cache first
+            cached_chunks = None
+            if self.caching_enabled and self.context_cache:
+                cached_chunks = await self.context_cache.get(user_id, embedding_hash)
+            
+            if cached_chunks:
+                # L3 hit - use cached chunks
+                # Separate into high/low relevance based on stored similarity scores
+                high_rel = [c for c in cached_chunks if c.get("similarity", 0) >= 0.7]
+                low_rel = [c for c in cached_chunks if c.get("similarity", 0) < 0.7]
+                logger.info(f"Retrieved from L3 cache: {len(high_rel)} high, {len(low_rel)} low")
+            else:
+                # L3 miss - do vector search
+                high_rel, low_rel = await self.retrieval.retrieve_top_chunks(
+                    db=db,
+                    query_embedding=query_embedding,
+                    user_id=user_id,
+                    top_k=settings.assistant_top_k
+                )
+                logger.info(
+                    f"Retrieved {len(high_rel)} high-relevance, "
+                    f"{len(low_rel)} low-relevance chunks"
+                )
+                
+                # Store in L3 cache
+                if self.caching_enabled and self.context_cache:
+                    # Combine for caching
+                    all_chunks = high_rel + low_rel
+                    await self.context_cache.set(user_id, embedding_hash, all_chunks)
+            
+            # ============================================================
+            # L1 CACHE CHECK: Complete Response Cache
+            # ============================================================
+            # Extract context IDs for L1 cache key
+            context_ids = []
+            for chunk in (high_rel + low_rel):
+                if hasattr(chunk, 'id'):
+                    context_ids.append(chunk.id)
+                elif isinstance(chunk, dict) and 'chunk_id' in chunk:
+                    context_ids.append(chunk['chunk_id'])
+            
+            # Check L1 cache for complete response
+            if self.caching_enabled and self.query_cache and context_ids:
+                cached_response = await self.query_cache.get(
+                    user_id=user_id,
+                    query=user_query,
+                    context_ids=context_ids
+                )
+                if cached_response:
+                    # L1 HIT - Return cached complete response immediately
+                    logger.info("✅ L1 CACHE HIT - Returning cached response")
+                    duration_ms = (time.time() - start_time) * 1000
+                    
+                    # Update duration in metadata
+                    if cached_response.get("metadata"):
+                        cached_response["metadata"]["duration_ms"] = duration_ms
+                        cached_response["metadata"]["from_cache"] = True
+                    
+                    return cached_response
+            
+            # L1 miss - continue with generation...
             
             # ============================================================
             # STEP 4: Context Building (Token-Aware Assembly)
@@ -267,9 +361,21 @@ class AssistantService:
                     "query_truncated": query_truncated,
                     "context_truncated": context_result["truncated"],
                     "duration_ms": duration_ms,
-                    "sources_count": len(sources)
+                    "sources_count": len(sources),
+                    "from_cache": False  # New generation
                 } if include_metadata else None
             }
+            
+            # ============================================================
+            # L1 CACHE STORE: Cache complete response
+            # ============================================================
+            if self.caching_enabled and self.query_cache and context_ids:
+                await self.query_cache.set(
+                    user_id=user_id,
+                    query=user_query,
+                    context_ids=context_ids,
+                    response=response
+                )
             
             # Comprehensive logging
             logger.info(
@@ -329,10 +435,33 @@ class AssistantService:
 _assistant_service = None
 
 
-def get_assistant_service() -> AssistantService:
-    """Get or create assistant service singleton."""
+def get_assistant_service(cache_manager: Optional[RedisCacheManager] = None) -> AssistantService:
+    """
+    Get or create assistant service singleton.
+    
+    Args:
+        cache_manager: Optional cache manager for caching layers
+        
+    Returns:
+        AssistantService: Singleton instance
+    """
     global _assistant_service
     if _assistant_service is None:
-        _assistant_service = AssistantService()
+        _assistant_service = AssistantService(cache_manager=cache_manager)
     return _assistant_service
 
+
+async def invalidate_user_cache(user_id: int, cache_manager: Optional[RedisCacheManager] = None):
+    """
+    Invalidate cached data when user modifies notes.
+    
+    Called by note CRUD endpoints to ensure fresh search results.
+    
+    Args:
+        user_id: User ID to invalidate cache for
+        cache_manager: Cache manager instance
+    """
+    if cache_manager and cache_manager.is_available:
+        context_cache = ContextCache(cache_manager)
+        await context_cache.invalidate_user(user_id)
+        logger.info(f"Invalidated L3 cache for user {user_id}")

@@ -100,11 +100,73 @@ alembic downgrade -1
 # Connect to Redis CLI
 redis-cli
 
-# Monitor Redis commands
+# Monitor Redis commands in real-time
 redis-cli monitor
+
+# Check Redis connection
+redis-cli ping  # Should return "PONG"
+
+# View rate limiting keys
+redis-cli KEYS "ratelimit:*"
+
+# Check specific user's rate limit
+redis-cli ZCARD ratelimit:user:1:minute
+
+# Check user's daily cost
+redis-cli GET ratelimit:cost:user:1:daily
+
+# Clear all rate limiting data (dev only!)
+redis-cli KEYS "ratelimit:*" | xargs redis-cli DEL
 
 # Flush all data (careful!)
 redis-cli FLUSHALL
+```
+
+### Production Features Testing
+
+#### Rate Limiting
+
+```bash
+# Check rate limiter health
+curl http://localhost:8000/api/v1/assistant/health
+
+# Get your rate limit stats (requires auth token)
+curl http://localhost:8000/api/v1/assistant/stats \
+     -H "Authorization: Bearer YOUR_TOKEN"
+
+# Test rate limiting by sending 11 requests rapidly
+# (Limit is 10/minute, so 11th should return 429)
+for i in {1..11}; do
+    curl -X POST http://localhost:8000/api/v1/assistant/query \
+         -H "Authorization: Bearer YOUR_TOKEN" \
+         -H "Content-Type: application/json" \
+         -d '{"query":"test"}' &
+done
+wait
+```
+
+#### Response Caching (Coming Soon)
+
+```bash
+# Once caching is implemented:
+# First request: uncached (~3-5s)
+time curl -X POST http://localhost:8000/api/v1/assistant/query \
+     -H "Authorization: Bearer YOUR_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"query":"What is grace?"}'
+
+# Second request: cached (<1s)
+time curl -X POST http://localhost:8000/api/v1/assistant/query \
+     -H "Authorization: Bearer YOUR_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"query":"What is grace?"}'
+```
+
+#### Metrics (Coming Soon)
+
+```bash
+# Once Prometheus metrics are implemented:
+curl http://localhost:8000/metrics
 ```
 
 ### Background Workers
@@ -120,7 +182,35 @@ Default environment variables are set in `.env.devcontainer`. To customize:
 
 1. Copy `.env.devcontainer` to `../.env` (in the project root)
 2. Update values as needed
-3. Rebuild the container if needed
+3. Add your HuggingFace API key to `HUGGINGFACE_API_KEY`
+4. Rebuild the container if needed
+
+### Production Features Configuration
+
+The dev container includes all production features:
+
+✅ **Rate Limiting** - Enabled by default
+- `RATE_LIMITING_ENABLED=true`
+- Per-user limits: 10/min, 100/hour, 500/day
+- Cost limits: $5/day per user, $100/day global
+- See `docs/RATE_LIMITING_IMPLEMENTATION.md` for details
+
+⏳ **Response Caching** - Coming soon (Phase 2)
+- Will reduce API costs by 60-80%
+- Target: <1s cached response time
+
+⏳ **Observability Metrics** - Coming soon (Phase 3)
+- Prometheus metrics endpoint
+- Grafana dashboards
+- Real-time monitoring
+
+⏳ **Circuit Breakers** - Coming soon (Phase 4)
+- HuggingFace API fault tolerance
+- Automatic recovery
+
+**Documentation:**
+- Quick Start: `docs/PRODUCTION_FEATURES_QUICK_START.md`
+- Full Progress: `docs/PRODUCTION_INFRASTRUCTURE_PROGRESS.md`
 
 ## Tips
 
