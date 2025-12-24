@@ -33,7 +33,7 @@ async def main():
     print("=" * 80)
     print()
     
-    test_email = "test@scribes.local"
+    test_email = "testadmin@example.com"
     
     async with AsyncSessionLocal() as db:
         # Find test user

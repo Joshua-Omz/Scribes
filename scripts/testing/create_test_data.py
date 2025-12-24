@@ -9,7 +9,16 @@ This script:
 5. Saves everything to database
 
 Usage:
-    python create_test_data.py
+    print("=" * 60)
+    print("✅ TEST DATA CREATION COMPLETE!")
+    print("=" * 60)
+    print(f"\nTest User ID: {user_id}")
+    print(f"Test User Email: testadmin@example.com")
+    print(f"Total Notes: {notes_count}")
+    print(f"Total Chunks: {chunks_count}")
+    print(f"\n💡 You can now use this data for manual testing!")
+    print(f"   See: docs/guides/backend implementations/ASSISTANT_MANUAL_TESTING_GUIDE.md")
+    print("\nYou can now run manual tests using this admin user.") create_test_data.py
 """
 import sys
 import asyncio
@@ -24,8 +33,8 @@ from app.core.database import AsyncSessionLocal
 from app.models.user_model import User
 from app.models.note_model import Note
 from app.models.note_chunk_model import NoteChunk
-from app.services.tokenizer_service import get_tokenizer_service
-from app.services.embedding_service import get_embedding_service
+from app.services.ai.tokenizer_service import get_tokenizer_service
+from app.services.ai.embedding_service import get_embedding_service
 from datetime import datetime
 from sqlalchemy import select
 
@@ -148,33 +157,25 @@ listen to and obey His gentle promptings, we experience the abundant life Jesus 
 ]
 
 
-async def create_test_user(db: AsyncSession) -> User:
-    """Create or get test user"""
-    test_email = "test@scribes.local"
+async def get_testadmin_user(db: AsyncSession) -> User:
+    """Get the testadmin user we created earlier"""
+    test_email = "testadmin@example.com"
     
-    # Check if user exists
+    # Find testadmin user
     result = await db.execute(select(User).filter(User.email == test_email))
     user = result.scalar_one_or_none()
     
-    if user:
-        print(f"✅ Test user already exists: {test_email} (ID: {user.id})")
-        return user
+    if not user:
+        print(f"❌ Error: testadmin user not found!")
+        print(f"   Please create the admin user first:")
+        print(f"   python scripts/admin/bootstrap_admin.py testadmin@example.com TestAdmin123")
+        raise ValueError(f"Admin user {test_email} not found in database")
     
-    # Create new user
-    user = User(
-        email=test_email,
-        username="Test User",
-        hashed_password="$2b$12$dummyhashedpassword",  # Dummy bcrypt hash
-        is_active=True,
-        is_verified=True,
-        created_at=datetime.utcnow()
-    )
-    
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    
-    print(f"✅ Created test user: {test_email} (ID: {user.id})")
+    print(f"✅ Found testadmin user: {test_email} (ID: {user.id})")
+    print(f"   Username: {user.username}")
+    print(f"   Role: {user.role}")
+    print(f"   Is Superuser: {user.is_superuser}")
+
     return user
 
 
@@ -308,8 +309,8 @@ async def main():
     print("SCRIBES - TEST DATA CREATION SCRIPT")
     print("=" * 60)
     print("\nThis script will:")
-    print("  1. Create a test user")
-    print("  2. Create 5 theological notes")
+    print("  1. Find testadmin user (testadmin@example.com)")
+    print("  2. Create 5 theological notes for testadmin")
     print("  3. Generate chunks for each note")
     print("  4. Generate embeddings for each chunk")
     print("  5. Save everything to database\n")
@@ -317,8 +318,8 @@ async def main():
     # Get database session using async context manager
     async with AsyncSessionLocal() as db:
         try:
-            # Create test user
-            user = await create_test_user(db)
+            # Get testadmin user
+            user = await get_testadmin_user(db)
             
             # Create notes with chunks
             for note_data in TEST_NOTES:

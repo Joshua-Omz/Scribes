@@ -1,65 +1,66 @@
-# Scribes Backend - Requirements
-# Python 3.11+ recommended
+# --- FORCE CPU VERSIONS ---
+# Must be at the top before torch dependencies
+--extra-index-url https://download.pytorch.org/whl/cpu
 
-# Core Framework
+# --- Core Framework ---
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-# Database
+# --- Database ---
 sqlalchemy==2.0.25
 asyncpg==0.29.0
 alembic==1.13.1
 psycopg2-binary==2.9.9
 
-# Security & Authentication
+# --- Security & Authentication ---
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 bcrypt==4.1.2
 
-# Email
+# --- Email ---
 aiosmtplib==3.0.1
-email-validator==2.1.0
+email-validator==2.1.0.post1
 
-# Utilities
+# --- Utilities ---
 python-dotenv==1.0.0
 python-dateutil==2.8.2
 tenacity==8.2.3
 
-# Background Tasks & Queue
+# --- Background Tasks & Queue ---
 redis==5.0.1
 arq==0.25.0
 
-# Service-Level Production Features (Gateway handles: rate limiting, global metrics, edge caching)
-
-# AI-Specific Caching (semantic caching for queries, embeddings, context)
+# --- Service-Level Features ---
 aiocache==0.12.2
 msgpack==1.0.7
-
-# Circuit Breakers (for LLM dependency protection)
 pybreaker==1.0.1
-
-# Distributed Tracing (service spans, not root trace)
 opentelemetry-api==1.21.0
 opentelemetry-sdk==1.21.0
 
-# AI/Embeddings
-sentence-transformers==5.1.2
-transformers==4.57.3
-huggingface-hub>=0.20.0
+# --- AI/Embeddings ---
+# CRITICAL: NumPy must be <2.0 for torch 2.2.0 compatibility
+# torch 2.2.0 was compiled with NumPy 1.x and will crash with NumPy 2.x
+numpy>=1.24.0,<2.0.0
+# CPU-only torch installation (no GPU support)
+torch==2.2.0+cpu
+torchvision==0.17.0+cpu
+# Transformers ecosystem
+sentence-transformers>=2.2.2,<6.0.0
+transformers>=4.30.0,<5.0.0
+huggingface-hub>=0.20.0,<1.0.0
+# PostgreSQL vector extension
 pgvector==0.2.5
-numpy>=1.26.0
-torch>=2.0.0
 
-# Testing
+# --- Testing ---
 pytest==7.4.4
 pytest-asyncio==0.23.3
 pytest-cov==4.1.0
 httpx==0.26.0
 
-# Development
+# --- Development ---
 black==24.1.1
 flake8==7.0.0
 isort==5.13.2

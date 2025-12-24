@@ -41,7 +41,7 @@ async def main():
     print("=" * 80)
     print()
     
-    test_email = "test@scribes.local"
+    test_email = "testadmin@example.com"
     all_checks_passed = True
     
     async with AsyncSessionLocal() as db:
@@ -57,8 +57,8 @@ async def main():
         user = result.scalars().first()
         
         if not user:
-            print(f"❌ FAIL: Test user '{test_email}' not found")
-            print("   Run 'python create_test_data.py' first")
+            print(f"❌ FAIL: testadmin user '{test_email}' not found")
+            print("   Run bootstrap_admin.py first")
             return
         
         print(f"✅ PASS: Test user found")

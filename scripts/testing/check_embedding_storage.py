@@ -30,6 +30,21 @@ async def main():
     embedding_service = EmbeddingService()
     
     async with AsyncSessionLocal() as db:
+        # Get testadmin user first
+        from app.models.user_model import User
+        from sqlalchemy import select
+        
+        result = await db.execute(
+            select(User).where(User.email == "testadmin@example.com")
+        )
+        user = result.scalars().first()
+        
+        if not user:
+            print("❌ testadmin user not found. Run bootstrap_admin.py first.")
+            return
+        
+        print(f"✅ Using testadmin user (ID: {user.id})\n")
+        
         # Get a chunk and its stored embedding
         sql = text("""
             SELECT 
@@ -37,12 +52,12 @@ async def main():
                 nc.embedding
             FROM note_chunks nc
             INNER JOIN notes n ON nc.note_id = n.id
-            WHERE n.user_id = 7
+            WHERE n.user_id = :user_id
               AND n.title LIKE '%Grace%'
             LIMIT 1
         """)
         
-        result = await db.execute(sql)
+        result = await db.execute(sql, {"user_id": user.id})
         row = result.fetchone()
         
         if not row:

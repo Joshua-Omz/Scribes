@@ -18,6 +18,8 @@ from app.schemas.note_schemas import (
     NoteSearchRequest
 )
 from app.services.ai.embedding_service import get_embedding_service
+from app.services.ai.caching.context_cache import ContextCache
+from app.core.cache import get_cache_manager
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,41 @@ class NoteService:
         self.db = db
         self.note_repo = NoteRepository(db)
         self.embedding_service = get_embedding_service()
+        self._context_cache: Optional[ContextCache] = None
+    
+    async def _get_context_cache(self) -> Optional[ContextCache]:
+        """
+        Get context cache instance lazily.
+        
+        Returns:
+            ContextCache or None: Cache instance if available
+        """
+        if self._context_cache is None:
+            try:
+                cache_manager = await get_cache_manager()
+                if cache_manager.is_available:
+                    self._context_cache = ContextCache(cache_manager)
+            except Exception as e:
+                logger.warning(f"Failed to initialize context cache: {e}")
+        return self._context_cache
+    
+    async def _invalidate_cache(self, user_id: int):
+        """
+        Invalidate L3 context cache for a user after note changes.
+        
+        Called when user creates/updates/deletes notes to ensure
+        fresh AI assistant search results.
+        
+        Args:
+            user_id: User ID to invalidate cache for
+        """
+        try:
+            context_cache = await self._get_context_cache()
+            if context_cache:
+                await context_cache.invalidate_user(user_id)
+                logger.debug(f"Invalidated L3 cache for user {user_id}")
+        except Exception as e:
+            logger.warning(f"Cache invalidation failed (non-critical): {e}")
     
     async def _generate_embedding(self, note: Note) -> None:
         """
@@ -90,6 +127,10 @@ class NoteService:
         await self.db.flush()
         await self.db.refresh(note)
         await self.db.commit()
+        
+        # Invalidate L3 context cache (note changes affect search results)
+        await self._invalidate_cache(user_id)
+        
         logger.info(f"Created note {note.id} with embedding: {note.embedding is not None}")
         return note
     
@@ -228,6 +269,9 @@ class NoteService:
         
         await self.db.commit()
         
+        # Invalidate L3 context cache (note changes affect search results)
+        await self._invalidate_cache(user_id)
+        
         return updated_note
     
     async def delete_note(self, note_id: int, user_id: int) -> bool:
@@ -256,6 +300,9 @@ class NoteService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to delete note"
             )
+        
+        # Invalidate L3 context cache (deleted note affects search results)
+        await self._invalidate_cache(user_id)
         
         return True
     

@@ -36,12 +36,12 @@ async def main():
     async with AsyncSessionLocal() as db:
         # Get test user
         result = await db.execute(
-            select(User).where(User.email == "test@scribes.local")
+            select(User).where(User.email == "testadmin@example.com")
         )
         user = result.scalars().first()
         
         if not user:
-            print("❌ Test user not found. Run create_test_data.py first.")
+            print("❌ testadmin user not found. Run bootstrap_admin.py first.")
             return
         
         print(f"✅ Found test user: {user.username} (id={user.id})\n")

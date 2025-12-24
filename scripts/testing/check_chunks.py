@@ -14,6 +14,21 @@ from app.core.database import AsyncSessionLocal
 
 async def main():
     async with AsyncSessionLocal() as db:
+        # Get testadmin user
+        from app.models.user_model import User
+        from sqlalchemy import select
+        
+        result = await db.execute(
+            select(User).where(User.email == "testadmin@example.com")
+        )
+        user = result.scalars().first()
+        
+        if not user:
+            print("❌ testadmin user not found. Run bootstrap_admin.py first.")
+            return
+        
+        print(f"✅ Using testadmin user (ID: {user.id})\n")
+        
         # Check unique chunks
         sql = text("""
             SELECT 
@@ -22,10 +37,10 @@ async def main():
                 COUNT(DISTINCT note_id) as unique_notes
             FROM note_chunks nc
             INNER JOIN notes n ON nc.note_id = n.id
-            WHERE n.user_id = 7
+            WHERE n.user_id = :user_id
         """)
         
-        result = await db.execute(sql)
+        result = await db.execute(sql, {"user_id": user.id})
         row = result.fetchone()
         
         print(f"Total chunks: {row.total_chunks}")
@@ -44,12 +59,12 @@ async def main():
                 LEFT(nc.chunk_text, 80) as preview
             FROM note_chunks nc
             INNER JOIN notes n ON nc.note_id = n.id
-            WHERE n.user_id = 7
+            WHERE n.user_id = :user_id
             ORDER BY n.id, nc.chunk_idx
             LIMIT 10
         """)
         
-        result2 = await db.execute(sql2)
+        result2 = await db.execute(sql2, {"user_id": user.id})
         rows = result2.fetchall()
         
         print("\nSample chunks:")

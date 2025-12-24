@@ -40,6 +40,21 @@ async def main():
     tokenizer = get_tokenizer_service()
     
     async with AsyncSessionLocal() as db:
+        # Get testadmin user first
+        from app.models.user_model import User
+        from sqlalchemy import select
+        
+        result = await db.execute(
+            select(User).where(User.email == "testadmin@example.com")
+        )
+        user = result.scalars().first()
+        
+        if not user:
+            print("❌ testadmin user not found. Run bootstrap_admin.py first.")
+            return
+        
+        print(f"✅ Using testadmin user (ID: {user.id})\n")
+        
         # Get a sample chunk about grace
         chunk_sql = text("""
             SELECT 
@@ -47,12 +62,12 @@ async def main():
                 nc.embedding
             FROM note_chunks nc
             INNER JOIN notes n ON nc.note_id = n.id
-            WHERE n.user_id = 7
+            WHERE n.user_id = :user_id
               AND n.title LIKE '%Grace%'
             LIMIT 1
         """)
         
-        result = await db.execute(chunk_sql)
+        result = await db.execute(chunk_sql, {"user_id": user.id})
         chunk = result.fetchone()
         
         if not chunk:
@@ -86,12 +101,15 @@ async def main():
                 SELECT 1 - (nc.embedding <-> :query_vec) as score
                 FROM note_chunks nc
                 INNER JOIN notes n ON nc.note_id = n.id
-                WHERE n.user_id = 7
+                WHERE n.user_id = :user_id
                   AND n.title LIKE '%Grace%'
                 LIMIT 1
             """)
             
-            score_result = await db.execute(score_sql, {"query_vec": str(query_embedding)})
+            score_result = await db.execute(score_sql, {
+                "query_vec": str(query_embedding),
+                "user_id": user.id
+            })
             score_row = score_result.fetchone()
             score = score_row.score if score_row else 0.0
             
@@ -120,11 +138,11 @@ async def main():
             SELECT nc.embedding
             FROM note_chunks nc
             INNER JOIN notes n ON nc.note_id = n.id
-            WHERE n.user_id = 7
+            WHERE n.user_id = :user_id
             LIMIT 3
         """)
         
-        sample_result = await db.execute(sample_sql)
+        sample_result = await db.execute(sample_sql, {"user_id": user.id})
         sample_embeddings = sample_result.fetchall()
         
         print(f"✅ Found {len(sample_embeddings)} sample embeddings")
