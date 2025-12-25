@@ -24,6 +24,7 @@ When user modifies notes (create/update/delete), we invalidate their L3 cache
 to ensure fresh search results. L1 and L2 remain valid (unchanged).
 """
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 import hashlib
 import logging
 
@@ -119,8 +120,17 @@ class ContextCache:
         cache_key = self._build_cache_key(user_id, embedding_hash)
         
         try:
+            # Convert datetime objects to ISO format strings for serialization
+            serializable_chunks = []
+            for chunk in chunks:
+                chunk_copy = chunk.copy()
+                for key, value in chunk_copy.items():
+                    if isinstance(value, datetime):
+                        chunk_copy[key] = value.isoformat()
+                serializable_chunks.append(chunk_copy)
+            
             # Store with short TTL (user notes may change)
-            await self.cache.set(cache_key, chunks, ttl=self.ttl)
+            await self.cache.set(cache_key, serializable_chunks, ttl=self.ttl)
             logger.info(f"💾 L3 CACHED: {cache_key}")
             
         except Exception as e:

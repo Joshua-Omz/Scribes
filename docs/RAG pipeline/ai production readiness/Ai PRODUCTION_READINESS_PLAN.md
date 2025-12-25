@@ -26,9 +26,9 @@
 
     ### Tier 1: Critical (Must-Have for Production)
 
-    - [ ] **Rate Limiting** - Prevent abuse and control costs
+    - [ ] **Rate Limiting** - Prevent abuse and control costs (this will be handled by the API gateway in future)
     - [ ] **Response Caching** - Reduce latency and API costs by 60-80%
-    - [ ] **Observability Metrics** - Monitor health, performance, and costs
+    - [ ] **Observability Metrics** - Monitor health, performance, and costs (THIS WILL BE HANDLED BY THE API GATEWAY IN FUTURE)
     - [ ] **Circuit Breakers** - Prevent cascading failures
 
     ### Tier 2: Important (Should-Have for Scale)

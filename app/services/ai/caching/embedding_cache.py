@@ -92,7 +92,7 @@ class EmbeddingCache:
         query_hash = hashlib.sha256(normalized.encode()).hexdigest()[:16]
         return f"embedding:v1:{query_hash}"
     
-    async def get(self, query: str) -> Optional[np.ndarray]:
+    async def get(self, query: str):
         """
         Retrieve cached embedding.
         
@@ -100,7 +100,7 @@ class EmbeddingCache:
             query: Query text
             
         Returns:
-            numpy.ndarray or None: Embedding vector (384,) if found, None otherwise
+            list or None: Embedding vector (384 floats) if found, None otherwise
         """
         if not self.enabled:
             return None
@@ -115,9 +115,9 @@ class EmbeddingCache:
                 
                 # Deserialize numpy array from msgpack
                 embedding_list = msgpack.unpackb(cached_bytes, raw=False)
-                embedding = np.array(embedding_list, dtype=np.float32)
                 
-                return embedding
+                # Return as list (consistent with embedding_service.generate())
+                return embedding_list
             else:
                 logger.debug(f"❌ L2 CACHE MISS: {cache_key}")
                 return None
@@ -126,13 +126,13 @@ class EmbeddingCache:
             logger.error(f"L2 cache get error: {e}")
             return None  # Graceful degradation
     
-    async def set(self, query: str, embedding: np.ndarray):
+    async def set(self, query: str, embedding):
         """
         Store embedding in cache.
         
         Args:
             query: Query text
-            embedding: Embedding vector (numpy array, shape (384,))
+            embedding: Embedding vector (numpy array or list, 384 dimensions)
         """
         if not self.enabled:
             return
@@ -140,14 +140,23 @@ class EmbeddingCache:
         cache_key = self._build_cache_key(query)
         
         try:
+            # Convert to numpy array if it's a list
+            if isinstance(embedding, list):
+                embedding_array = np.array(embedding, dtype=np.float32)
+            elif isinstance(embedding, np.ndarray):
+                embedding_array = embedding
+            else:
+                logger.warning(f"Invalid embedding type: {type(embedding)}, expected list or numpy array")
+                return
+            
             # Validate embedding shape
-            if embedding.shape != (384,):
-                logger.warning(f"Invalid embedding shape: {embedding.shape}, expected (384,)")
+            if embedding_array.shape != (384,):
+                logger.warning(f"Invalid embedding shape: {embedding_array.shape}, expected (384,)")
                 return
             
             # Serialize numpy array to msgpack (compact binary format)
             embedding_bytes = msgpack.packb(
-                embedding.tolist(),
+                embedding_array.tolist(),
                 use_bin_type=True
             )
             

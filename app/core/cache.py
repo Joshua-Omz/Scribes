@@ -10,7 +10,7 @@ Phase 2: AI-Specific Caching
 from typing import Optional
 import redis.asyncio as redis
 from aiocache import Cache
-from aiocache.serializers import MsgPackSerializer
+from aiocache.serializers import JsonSerializer
 import logging
 
 from app.core.config import settings
@@ -39,17 +39,16 @@ class RedisCacheManager:
         Initialize Redis connection pool.
         
         Establishes connection with:
-        - Async Redis client (for raw operations)
-        - aiocache wrapper (for simplified caching)
+        - Async Redis client (for raw operations, binary mode for msgpack)
+        - aiocache wrapper (for simplified caching, text mode for compatibility)
         - Connection pooling (max 50 connections)
-        - Binary mode for msgpack serialization
         """
         try:
-            # Create async Redis client with connection pool
+            # Create async Redis client with connection pool (binary mode for msgpack)
             self._redis_client = await redis.from_url(
                 settings.redis_url,
                 encoding="utf-8",
-                decode_responses=False,  # Binary mode for msgpack
+                decode_responses=False,  # Binary mode for msgpack on raw client
                 max_connections=settings.redis_max_connections * 5,  # Higher pool for cache
                 socket_timeout=5,
                 socket_connect_timeout=5,
@@ -60,14 +59,16 @@ class RedisCacheManager:
             await self._redis_client.ping()
             logger.info("✅ Redis cache connected successfully")
             
-            # Initialize aiocache wrapper for simplified operations
+            # Initialize aiocache wrapper with its own connection pool
+            # Using JSON serializer for compatibility with text-mode Redis
             self._cache = Cache(
                 Cache.REDIS,
                 endpoint=settings.redis_host,
                 port=settings.redis_port,
                 namespace="ai",  # Prefix all keys with "ai:"
-                serializer=MsgPackSerializer(),
-                timeout=5
+                serializer=JsonSerializer(),
+                timeout=5,
+                # aiocache will create its own connection pool internally
             )
             
             self._is_connected = True

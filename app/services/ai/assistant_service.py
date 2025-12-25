@@ -30,6 +30,7 @@ from typing import Dict, Any, Optional
 import logging
 import time
 import hashlib
+import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.ai.tokenizer_service import get_tokenizer_service
@@ -178,8 +179,14 @@ class AssistantService:
                 if self.caching_enabled and self.embedding_cache:
                     await self.embedding_cache.set(user_query, query_embedding)
             
+            # Convert to numpy array if it's a list (for cache key generation)
+            if isinstance(query_embedding, list):
+                query_embedding_array = np.array(query_embedding, dtype=np.float32)
+            else:
+                query_embedding_array = query_embedding
+            
             # Generate embedding hash for L3 cache key
-            embedding_hash = hashlib.sha256(query_embedding.tobytes()).hexdigest()
+            embedding_hash = hashlib.sha256(query_embedding_array.tobytes()).hexdigest()
             
             logger.debug(f"Query embedding generated: {len(query_embedding)} dimensions")
             
