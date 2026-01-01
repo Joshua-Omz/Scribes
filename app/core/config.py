@@ -216,6 +216,35 @@ class Settings(BaseSettings):
         description="Timeout for generation requests in seconds"
     )
     
+    # ============================================================================
+    # CIRCUIT BREAKER CONFIGURATION (Phase 4: Fault Tolerance)
+    # ============================================================================
+    # Circuit breaker protects against cascading failures when HuggingFace API is down
+    circuit_breaker_enabled: bool = Field(
+        default=True,
+        description="Enable circuit breaker for HuggingFace API calls"
+    )
+    
+    circuit_breaker_fail_threshold: int = Field(
+        default=5,
+        description="Number of failures before circuit opens"
+    )
+    
+    circuit_breaker_timeout_seconds: int = Field(
+        default=30,
+        description="Seconds to wait in OPEN state before testing recovery (HALF-OPEN)"
+    )
+    
+    circuit_breaker_reset_timeout: int = Field(
+        default=60,
+        description="Seconds to reset failure counter in CLOSED state"
+    )
+    
+    circuit_breaker_name: str = Field(
+        default="huggingface_api",
+        description="Circuit breaker identifier for logging"
+    )
+    
     @field_validator("cors_origins")
     @classmethod
     def parse_cors_origins(cls, v: str) -> List[str]:

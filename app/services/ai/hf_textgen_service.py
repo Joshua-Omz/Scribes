@@ -11,6 +11,12 @@ from typing import Dict, Any, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
 from transformers import AutoTokenizer
 from app.core.config import settings
+from app.services.ai.circuit_breaker import (
+    async_circuit_breaker,
+    get_huggingface_circuit_breaker,
+    ServiceUnavailableError
+)
+from pybreaker import CircuitBreakerError
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +189,7 @@ class HFTextGenService:
             if self.use_api:
                 answer = self._generate_api(prompt, max_new_tokens, temperature, top_p, repetition_penalty)
             else:
+                # Local model doesn't need circuit breaker (it's in-process)
                 answer = self._generate_local(prompt, max_new_tokens, temperature, top_p, repetition_penalty)
             
             # Validate output
@@ -201,6 +208,17 @@ class HFTextGenService:
             )
             
             return answer.strip()
+        
+        except CircuitBreakerError as e:
+            # Circuit is open - convert to service unavailable
+            logger.warning(
+                f"Circuit breaker OPEN, service unavailable",
+                extra={"circuit_state": "open"}
+            )
+            raise ServiceUnavailableError(
+                "AI generation service is temporarily unavailable. "
+                "Please try again in a few moments."
+            ) from e
             
         except Exception as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -222,7 +240,86 @@ class HFTextGenService:
         top_p: float,
         repetition_penalty: float
     ) -> str:
-        """Generate using HuggingFace Inference API."""
+        """
+        Generate using HuggingFace Inference API.
+        Protected by circuit breaker to prevent cascading failures.
+        
+        Args:
+            prompt: Full prompt (system + context + query)
+            max_new_tokens: Maximum tokens to generate
+            temperature: Sampling temperature
+            top_p: Nucleus sampling parameter
+            repetition_penalty: Penalty for token repetition
+        
+        Returns:
+            Generated text (answer only, prompt removed)
+        
+        Raises:
+            CircuitBreakerError: When circuit is OPEN
+            GenerationError: When generation fails
+        """
+        # Get circuit breaker instance
+        breaker = get_huggingface_circuit_breaker()
+        
+        # Check if circuit breaker is enabled
+        if not settings.circuit_breaker_enabled:
+            logger.debug("Circuit breaker disabled, calling API directly")
+            return self._call_hf_api(prompt, max_new_tokens, temperature, top_p, repetition_penalty)
+        
+        # Check circuit state
+        if breaker.current_state == 'open':
+            logger.warning(
+                f"Circuit breaker is OPEN, failing fast",
+                extra={
+                    "breaker_name": breaker.name,
+                    "function": "_generate_api"
+                }
+            )
+            raise CircuitBreakerError(
+                f"Circuit breaker '{breaker.name}' is OPEN. "
+                f"Service is temporarily unavailable."
+            )
+        
+        try:
+            # Make the actual API call
+            result = self._call_hf_api(prompt, max_new_tokens, temperature, top_p, repetition_penalty)
+            
+            # Success - notify breaker
+            breaker.call_succeeded()
+            
+            return result
+            
+        except Exception as e:
+            # Check if this exception should count as failure
+            should_count = breaker._should_increase_failure_count(e)
+            
+            if should_count:
+                # Record failure
+                breaker.call_failed()
+                
+                logger.error(
+                    f"Circuit breaker call failed",
+                    extra={
+                        "breaker_name": breaker.name,
+                        "function": "_generate_api",
+                        "exception_type": type(e).__name__,
+                        "fail_count": breaker.fail_counter,
+                        "current_state": breaker.current_state
+                    }
+                )
+            
+            # Re-raise original exception
+            raise
+    
+    def _call_hf_api(
+        self,
+        prompt: str,
+        max_new_tokens: int,
+        temperature: float,
+        top_p: float,
+        repetition_penalty: float
+    ) -> str:
+        """Internal method to call HuggingFace API (no circuit breaker logic)."""
         try:
             response = self._api_client.text_generation(
                 prompt,

@@ -11,7 +11,13 @@ import time
 from typing import Dict, Any, Optional, List
 from tenacity import retry, stop_after_attempt, wait_exponential
 from transformers import AutoTokenizer
+from pybreaker import CircuitBreakerError
+
 from app.core.config import settings
+from app.services.ai.circuit_breaker import (
+    get_huggingface_circuit_breaker,
+    ServiceUnavailableError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +229,48 @@ class HFInferenceService:
         temperature: float,
         top_p: float
     ) -> str:
-        """Generate using HuggingFace Inference API chat_completion endpoint."""
+        """
+        Generate using HuggingFace Inference API chat_completion endpoint.
+        Protected by circuit breaker to prevent cascading failures.
+        """
+        if not settings.circuit_breaker_enabled:
+            # Circuit breaker disabled - call API directly
+            return self._call_hf_api_chat(messages, max_tokens, temperature, top_p)
+        
+        # Get circuit breaker and protect the API call
+        breaker = get_huggingface_circuit_breaker()
+        
+        try:
+            # Circuit breaker will track failures and open if threshold exceeded
+            return breaker.call(
+                self._call_hf_api_chat,
+                messages,
+                max_tokens,
+                temperature,
+                top_p
+            )
+        except CircuitBreakerError as e:
+            # Circuit is OPEN - convert to ServiceUnavailableError
+            logger.error(
+                f"Circuit breaker OPEN for HuggingFace API",
+                extra={
+                    "breaker_state": breaker.current_state,
+                    "fail_count": breaker.fail_counter
+                }
+            )
+            raise ServiceUnavailableError(
+                f"HuggingFace API temporarily unavailable. Circuit breaker is {breaker.current_state}. "
+                f"Please try again in {breaker.reset_timeout} seconds."
+            )
+    
+    def _call_hf_api_chat(
+        self,
+        messages: List[Dict[str, str]],
+        max_tokens: int,
+        temperature: float,
+        top_p: float
+    ) -> str:
+        """Internal method that makes the actual HF API call without circuit breaker logic."""
         try:
             response = self._api_client.chat_completion(
                 messages=messages,
@@ -233,9 +280,7 @@ class HFInferenceService:
             )
             
             # Extract answer from response
-            # Response format: ChatCompletionOutput with choices[0].message.content
             answer = response.choices[0].message.content
-            
             return answer.strip()
             
         except Exception as e:
@@ -408,7 +453,50 @@ class HFInferenceService:
         top_p: float,
         repetition_penalty: float
     ) -> str:
-        """Generate using HuggingFace Inference API text_generation endpoint (LEGACY)."""
+        """
+        Generate using HuggingFace Inference API text_generation endpoint (LEGACY).
+        Protected by circuit breaker to prevent cascading failures.
+        """
+        if not settings.circuit_breaker_enabled:
+            # Circuit breaker disabled - call API directly
+            return self._call_hf_api_text(prompt, max_new_tokens, temperature, top_p, repetition_penalty)
+        
+        # Get circuit breaker and protect the API call
+        breaker = get_huggingface_circuit_breaker()
+        
+        try:
+            # Circuit breaker will track failures and open if threshold exceeded
+            return breaker.call(
+                self._call_hf_api_text,
+                prompt,
+                max_new_tokens,
+                temperature,
+                top_p,
+                repetition_penalty
+            )
+        except CircuitBreakerError as e:
+            # Circuit is OPEN - convert to ServiceUnavailableError
+            logger.error(
+                f"Circuit breaker OPEN for HuggingFace API",
+                extra={
+                    "breaker_state": breaker.current_state,
+                    "fail_count": breaker.fail_counter
+                }
+            )
+            raise ServiceUnavailableError(
+                f"HuggingFace API temporarily unavailable. Circuit breaker is {breaker.current_state}. "
+                f"Please try again in {breaker.reset_timeout} seconds."
+            )
+    
+    def _call_hf_api_text(
+        self,
+        prompt: str,
+        max_new_tokens: int,
+        temperature: float,
+        top_p: float,
+        repetition_penalty: float
+    ) -> str:
+        """Internal method that makes the actual HF API call without circuit breaker logic."""
         try:
             response = self._api_client.text_generation(
                 prompt,

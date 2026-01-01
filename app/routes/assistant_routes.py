@@ -36,6 +36,12 @@ from app.schemas.assistant_schemas import (
 )
 from app.services.ai.assistant_service import get_assistant_service, AssistantService
 
+# Phase 4: Circuit breaker components
+from app.services.ai.circuit_breaker import (
+    ServiceUnavailableError,
+    get_circuit_status
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assistant", tags=["AI Assistant"])
@@ -147,6 +153,23 @@ async def query_assistant(
         )
         
         return response
+    
+    except ServiceUnavailableError as e:
+        # Circuit is open and no fallback available
+        # Return 503 Service Unavailable
+        logger.error(
+            f"Service unavailable for user {current_user.id}",
+            extra={"error": str(e)}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "service_unavailable",
+                "message": str(e),
+                "retry_after": 30,  # Suggest retry in 30 seconds
+                "circuit_status": get_circuit_status()
+            }
+        )
         
     except HTTPException:
         # Re-raise HTTP exceptions (validation errors)
@@ -327,3 +350,41 @@ async def assistant_health():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Service unhealthy: {str(e)}"
         )
+
+
+@router.get(
+    "/health/circuit-breaker",
+    summary="Circuit breaker status",
+    description="Get current status of the HuggingFace API circuit breaker for monitoring and debugging"
+)
+async def get_circuit_breaker_health():
+    """
+    Get circuit breaker status for monitoring.
+    
+    Phase 4: Circuit breaker health endpoint
+    
+    Returns:
+        Circuit breaker state and health information including:
+        - name: Breaker identifier
+        - state: Current state (closed/open/half-open)
+        - fail_count: Number of consecutive failures
+        - is_healthy: Whether the breaker is closed (healthy)
+        - enabled: Whether circuit breaker is enabled
+    """
+    try:
+        status_info = get_circuit_status()
+        
+        return {
+            "circuit_breaker": status_info,
+            "timestamp": time.time()
+        }
+    
+    except Exception as e:
+        logger.error(f"Circuit breaker health check failed: {e}", exc_info=True)
+        return {
+            "circuit_breaker": {
+                "status": "error",
+                "error": str(e)
+            },
+            "timestamp": time.time()
+        }
