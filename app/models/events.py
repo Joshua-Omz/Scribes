@@ -20,7 +20,7 @@ def register_note_events():
     embeddings are automatically generated on note creation and updates.
     """
     from app.models.note_model import Note
-    from app.services.embedding_service import get_embedding_service, EmbeddingGenerationError
+    from app.services.ai.embedding_service import get_embedding_service, EmbeddingGenerationError
     
     @event.listens_for(Note, 'before_insert')
     @event.listens_for(Note, 'before_update')

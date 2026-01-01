@@ -44,10 +44,15 @@ virtualenv/
 # ===================================
 # Environment Variables & Secrets
 # ===================================
+# Ignore active environment files (contain secrets)
 .env
 .env.local
 .env.*.local
-.env.production
+
+# Allow environment templates to be committed
+!.env.production
+!.env.development
+!.env.example
 .env.staging
 .env.development
 *.env

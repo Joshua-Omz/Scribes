@@ -2,6 +2,36 @@
 
 A knowledge and note organization system powered by AI, built with **FastAPI** and **PostgreSQL**.
 
+**Status:** ✅ Functional | 🚧 Production Infrastructure In Progress (20% complete)
+
+---
+
+## 🎯 Production Readiness Status
+
+| Feature | Status | Impact | Docs |
+|---------|--------|--------|------|
+| **Rate Limiting** | ✅ READY | Abuse prevention, cost control | [Details](./docs/RATE_LIMITING_IMPLEMENTATION.md) |
+| **Response Caching** | ⏳ PENDING | 60-80% cost reduction | [Plan](./docs/PRODUCTION_READINESS_PLAN.md) |
+| **Observability** | ⏳ PENDING | Production monitoring | [Plan](./docs/PRODUCTION_READINESS_PLAN.md) |
+| **Circuit Breakers** | ⏳ PENDING | Fault tolerance | [Plan](./docs/PRODUCTION_READINESS_PLAN.md) |
+
+**Quick Start:** [Production Features Guide](./docs/PRODUCTION_FEATURES_QUICK_START.md)  
+**Full Progress:** [Implementation Status](./docs/PRODUCTION_INFRASTRUCTURE_PROGRESS.md)
+
+---
+
+## 🗺️ Quick Navigation
+
+**New to the project?** Start here:
+
+- 📁 **[PROJECT_ORGANIZATION.md](./PROJECT_ORGANIZATION.md)** - Complete project structure guide
+- 📖 **[REORGANIZATION_SUMMARY.md](./REORGANIZATION_SUMMARY.md)** - What changed and where things are
+- 🤖 **[AI Assistant Docs](./docs/services/ai-assistant/README.md)** - Complete AI Assistant documentation
+- 🧪 **[Test Documentation](./tests/README.md)** - How to run and write tests
+- 🔧 **[Scripts Documentation](./scripts/README.md)** - All utility scripts explained
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites

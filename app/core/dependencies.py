@@ -228,3 +228,30 @@ async def get_all_deactivated_users_dependency(
     users = await user_repo.get_all_deactivated()
     return users
 
+
+# ============================================================================
+# CACHE MANAGER DEPENDENCY (Phase 2: AI Caching)
+# ============================================================================
+
+from app.core.cache import get_cache_manager, RedisCacheManager
+
+
+async def get_cache() -> RedisCacheManager:
+    """
+    Get Redis cache manager for AI caching.
+    
+    Provides access to three-layer cache:
+    - L1: Query result cache (complete AI responses)
+    - L2: Embedding cache (query embeddings)
+    - L3: Context cache (retrieved sermon chunks)
+    
+    Returns:
+        RedisCacheManager: Cache manager instance
+        
+    Usage:
+        @router.get("/endpoint")
+        async def endpoint(cache: RedisCacheManager = Depends(get_cache)):
+            if cache.is_available:
+                result = await cache.cache.get("key")
+    """
+    return await get_cache_manager()

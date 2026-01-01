@@ -1,0 +1,9 @@
+{
+    "python.useEnvironmentsExtension": true,
+    "terminal.integrated.environmentChangesIndicator": "on",
+    "python.testing.pytestArgs": [
+        "venv"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
+}

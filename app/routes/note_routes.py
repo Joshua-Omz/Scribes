@@ -18,7 +18,7 @@ from app.schemas.note_schemas import (
     NoteSearchRequest
 )
 from app.schemas.auth_schemas import MessageResponse
-from app.services.note_service import NoteService
+from app.services.business.note_service import NoteService
 
 
 router = APIRouter(prefix="/notes", tags=["Notes"])

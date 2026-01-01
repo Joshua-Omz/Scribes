@@ -78,15 +78,61 @@ class Settings(BaseSettings):
         description="Embedding model identifier"
     )
     
-    # Redis & Background Tasks
+    # Redis (for AI-specific caching: queries, embeddings, context)
     redis_url: str = Field(
         default="redis://localhost:6379",
-        description="Redis connection URL for background tasks"
+        description="Redis connection URL for AI caching and background tasks"
     )
-    redis_max_connections: int = Field(default=10, description="Redis connection pool size")
+    redis_host: str = Field(default="localhost", description="Redis host")
+    redis_port: int = Field(default=6379, description="Redis port")
+    redis_db: int = Field(default=0, description="Redis database number")
+    redis_max_connections: int = Field(default=10, description="Redis connection pool size (AI cache + ARQ)")
     arq_job_timeout: int = Field(default=3600, description="ARQ job timeout in seconds (1 hour default)")
     arq_max_jobs: int = Field(default=10, description="Maximum concurrent ARQ jobs")
     arq_keep_result: int = Field(default=3600, description="How long to keep job results in seconds")
+    
+    # ============================================================================
+    # AI CACHE CONFIGURATION (Phase 2: Semantic Caching)
+    # ============================================================================
+    # Three-layer caching strategy:
+    # - L1 (Query Result): Complete AI responses (highest value, user+query specific)
+    # - L2 (Embedding): Query embeddings (expensive to compute, shared across users)
+    # - L3 (Context): Retrieved sermon chunks (short-lived, user-specific)
+    
+    cache_enabled: bool = Field(
+        default=True,
+        description="Master switch for AI caching (disable for debugging)"
+    )
+    
+    # L1: Query Result Cache (complete AI responses)
+    cache_query_ttl: int = Field(
+        default=86400,  # 24 hours
+        description="L1 cache TTL: How long to cache complete AI responses (seconds)"
+    )
+    
+    # L2: Embedding Cache (query embeddings - expensive to compute)
+    cache_embedding_ttl: int = Field(
+        default=604800,  # 7 days
+        description="L2 cache TTL: How long to cache query embeddings (seconds)"
+    )
+    
+    # L3: Context Cache (retrieved sermon chunks - user notes may change)
+    cache_context_ttl: int = Field(
+        default=3600,  # 1 hour
+        description="L3 cache TTL: How long to cache retrieved context chunks (seconds)"
+    )
+    
+    # Semantic similarity threshold for cache hits
+    cache_similarity_threshold: float = Field(
+        default=0.85,
+        description="Cosine similarity threshold for semantic cache matching (0-1, higher = stricter)"
+    )
+    
+    # Cost Tracking (Service-Level Responsibility)
+    # Gateway handles: rate limiting, per-IP limits, global traffic control
+    # Service handles: token usage tracking, per-request cost calculation
+    user_daily_cost_limit: float = Field(default=5.0, description="Max API cost per user per day (USD) - for alerts")
+    global_daily_cost_limit: float = Field(default=100.0, description="Max API cost system-wide per day (USD) - for alerts")
     
     # AI Assistant Configuration (Phase 6 - RAG with token awareness)
     # Token Budget Breakdown (Total: 2048 tokens):
@@ -150,12 +196,16 @@ class Settings(BaseSettings):
         description="Hugging Face embedding model (384-dim)"
     )
     hf_generation_model: str = Field(
-        default="meta-llama/Llama-2-7b-chat-hf",
-        description="Hugging Face generation model for assistant (can be local or API)"
+        default="meta-llama/Llama-3.2-3B-Instruct",
+        description="Hugging Face generation model for assistant. Modern instruction-tuned models (Llama-3.x, Mistral-Instruct) use chat_completion endpoint."
     )
     hf_use_api: bool = Field(
         default=True,
         description="Use Hugging Face Inference API instead of local model"
+    )
+    hf_api_mode: str = Field(
+        default="chat",
+        description="API mode: 'chat' for chat_completion (instruction models) or 'text' for text_generation (completion models)"
     )
     hf_generation_temperature: float = Field(
         default=0.2,
@@ -164,6 +214,35 @@ class Settings(BaseSettings):
     hf_generation_timeout: int = Field(
         default=30,
         description="Timeout for generation requests in seconds"
+    )
+    
+    # ============================================================================
+    # CIRCUIT BREAKER CONFIGURATION (Phase 4: Fault Tolerance)
+    # ============================================================================
+    # Circuit breaker protects against cascading failures when HuggingFace API is down
+    circuit_breaker_enabled: bool = Field(
+        default=True,
+        description="Enable circuit breaker for HuggingFace API calls"
+    )
+    
+    circuit_breaker_fail_threshold: int = Field(
+        default=5,
+        description="Number of failures before circuit opens"
+    )
+    
+    circuit_breaker_timeout_seconds: int = Field(
+        default=30,
+        description="Seconds to wait in OPEN state before testing recovery (HALF-OPEN)"
+    )
+    
+    circuit_breaker_reset_timeout: int = Field(
+        default=60,
+        description="Seconds to reset failure counter in CLOSED state"
+    )
+    
+    circuit_breaker_name: str = Field(
+        default="huggingface_api",
+        description="Circuit breaker identifier for logging"
     )
     
     @field_validator("cors_origins")
